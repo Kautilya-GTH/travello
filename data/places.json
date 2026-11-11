@@ -1,0 +1,811 @@
+{
+  "_meta": {
+    "source": "Extracted from the DEST object in travello_prototype.html",
+    "notes": [
+      "Stay prices are per night in INR (approximate for international destinations).",
+      "Stays are sample listings, not verified properties or bookings.",
+      "Verify every place, note and price before using in the demo."
+    ]
+  },
+  "destinations": {
+    "goa": {
+      "key": "goa",
+      "name": "Goa",
+      "country": "India",
+      "domestic": true,
+      "region": "North & Central Goa",
+      "sights": [
+        {
+          "id": "fontainhas",
+          "name": "Fontainhas Latin Quarter",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Portuguese-era lanes and azulejo tiles in Panaji",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "bomjesus",
+          "name": "Basilica of Bom Jesus, Old Goa",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "UNESCO-listed 16th-century basilica",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "divar",
+          "name": "Divar Island ferry & cycle",
+          "tags": [
+            "Nature",
+            "Relaxation"
+          ],
+          "note": "Free ferry, paddy fields and sleepy villages",
+          "dur": "3 hrs"
+        },
+        {
+          "id": "chapora",
+          "name": "Chapora Fort at sunset",
+          "tags": [
+            "Sightseeing",
+            "Nature"
+          ],
+          "note": "Clifftop fort with views over Vagator",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "anjuna",
+          "name": "Anjuna Flea Market",
+          "tags": [
+            "Shopping"
+          ],
+          "note": "Wednesday market for textiles, spices and trinkets",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "dudhsagar",
+          "name": "Dudhsagar Falls day trip",
+          "tags": [
+            "Nature",
+            "Adventure"
+          ],
+          "note": "Four-tiered waterfall on the Goa–Karnataka border",
+          "dur": "Full day"
+        }
+      ],
+      "food": [
+        {
+          "id": "bodega",
+          "name": "Café Bodega, Panjim",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Courtyard café inside an art gallery",
+          "price": "₹₹"
+        },
+        {
+          "id": "vinayak",
+          "name": "Vinayak Family Restaurant",
+          "tags": [
+            "Local food"
+          ],
+          "note": "Legendary Goan fish thali in Assagao",
+          "price": "₹"
+        },
+        {
+          "id": "gunpowder",
+          "name": "Gunpowder, Assagao",
+          "tags": [
+            "Local food",
+            "Vegetarian"
+          ],
+          "note": "Coastal and South Indian plates in a garden",
+          "price": "₹₹"
+        },
+        {
+          "id": "artjuna",
+          "name": "Artjuna Café, Anjuna",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Leafy garden café with Mediterranean bowls",
+          "price": "₹₹"
+        },
+        {
+          "id": "thalassa",
+          "name": "Thalassa, Siolim",
+          "tags": [
+            "Fine dining"
+          ],
+          "note": "Greek dinner on a cliff at sunset",
+          "price": "₹₹₹"
+        }
+      ],
+      "stays": [
+        {
+          "id": "panjiminn",
+          "name": "Panjim Inn",
+          "type": "Boutique",
+          "note": "Heritage mansion in Fontainhas",
+          "price": 7500,
+          "rating": 4.6,
+          "tier": 2
+        },
+        {
+          "id": "assagaovilla",
+          "name": "Assagao garden villa",
+          "type": "Airbnb",
+          "note": "Entire 2-bed villa with pool",
+          "price": 9800,
+          "rating": 4.8,
+          "tier": 3
+        },
+        {
+          "id": "siolimstudio",
+          "name": "Siolim riverside studio",
+          "type": "Airbnb",
+          "note": "Quiet studio, kitchenette, bikes",
+          "price": 3200,
+          "rating": 4.5,
+          "tier": 1
+        },
+        {
+          "id": "gingerpanjim",
+          "name": "Ginger Goa, Panjim",
+          "type": "Hotel",
+          "note": "Reliable business hotel near the river",
+          "price": 4200,
+          "rating": 4.1,
+          "tier": 1
+        },
+        {
+          "id": "tajfort",
+          "name": "Taj Fort Aguada Resort",
+          "type": "Hotel",
+          "note": "Sea-facing resort in Sinquerim",
+          "price": 16500,
+          "rating": 4.7,
+          "tier": 3
+        }
+      ],
+      "extras": [
+        {
+          "id": "vagator",
+          "name": "Sunset at Vagator Beach",
+          "note": "Golden hour on the red cliffs"
+        },
+        {
+          "id": "spice",
+          "name": "Spice plantation visit, Ponda",
+          "note": "Guided walk and a Goan lunch"
+        },
+        {
+          "id": "riverside",
+          "name": "Mandovi riverside evening walk",
+          "note": "Panjim promenade and street snacks"
+        },
+        {
+          "id": "morjim",
+          "name": "Slow morning at Morjim Beach",
+          "note": "Quiet beach, olive ridley turtle nesting zone"
+        }
+      ]
+    },
+    "jaipur": {
+      "key": "jaipur",
+      "name": "Jaipur",
+      "country": "India",
+      "domestic": true,
+      "region": "Rajasthan",
+      "sights": [
+        {
+          "id": "amber",
+          "name": "Amber Fort",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Hilltop fort with mirror-work halls",
+          "dur": "3 hrs"
+        },
+        {
+          "id": "citypalace",
+          "name": "City Palace",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Royal residence and textile museum",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "hawamahal",
+          "name": "Hawa Mahal & bazaar walk",
+          "tags": [
+            "Shopping",
+            "Culture"
+          ],
+          "note": "Pink façade, then Johari and Bapu bazaars",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "nahargarh",
+          "name": "Nahargarh Fort at sunset",
+          "tags": [
+            "Sightseeing",
+            "Nature"
+          ],
+          "note": "Best view of the Pink City at dusk",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "jantar",
+          "name": "Jantar Mantar",
+          "tags": [
+            "Culture"
+          ],
+          "note": "18th-century astronomical instruments",
+          "dur": "1 hr"
+        },
+        {
+          "id": "pannameena",
+          "name": "Panna Meena ka Kund",
+          "tags": [
+            "Sightseeing"
+          ],
+          "note": "Symmetrical stepwell near Amber",
+          "dur": "45 min"
+        }
+      ],
+      "food": [
+        {
+          "id": "lmb",
+          "name": "Laxmi Misthan Bhandar",
+          "tags": [
+            "Local food",
+            "Vegetarian"
+          ],
+          "note": "Rajasthani thali since 1954",
+          "price": "₹₹"
+        },
+        {
+          "id": "tapri",
+          "name": "Tapri Central",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Rooftop chai with Central Park views",
+          "price": "₹"
+        },
+        {
+          "id": "rawat",
+          "name": "Rawat Mishthan Bhandar",
+          "tags": [
+            "Street food",
+            "Vegetarian"
+          ],
+          "note": "Famous pyaaz kachori",
+          "price": "₹"
+        },
+        {
+          "id": "palladio",
+          "name": "Bar Palladio",
+          "tags": [
+            "Fine dining"
+          ],
+          "note": "Italian dinner in a jewel-blue pavilion",
+          "price": "₹₹₹"
+        },
+        {
+          "id": "anokhi",
+          "name": "Anokhi Café",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Farm salads and breads above the Anokhi store",
+          "price": "₹₹"
+        }
+      ],
+      "stays": [
+        {
+          "id": "pearl",
+          "name": "Pearl Palace Heritage",
+          "type": "Boutique",
+          "note": "Hand-painted rooms, rooftop restaurant",
+          "price": 4500,
+          "rating": 4.6,
+          "tier": 1
+        },
+        {
+          "id": "haveli",
+          "name": "Old-city haveli suite",
+          "type": "Airbnb",
+          "note": "Courtyard haveli near Hawa Mahal",
+          "price": 5800,
+          "rating": 4.7,
+          "tier": 2
+        },
+        {
+          "id": "itc",
+          "name": "ITC Rajputana",
+          "type": "Hotel",
+          "note": "Full-service hotel near the station",
+          "price": 11000,
+          "rating": 4.5,
+          "tier": 3
+        },
+        {
+          "id": "samode",
+          "name": "Samode Haveli",
+          "type": "Boutique",
+          "note": "200-year-old haveli with frescoes",
+          "price": 16000,
+          "rating": 4.8,
+          "tier": 3
+        },
+        {
+          "id": "lemontree",
+          "name": "Lemon Tree Premier",
+          "type": "Hotel",
+          "note": "Modern rooms on MI Road",
+          "price": 5200,
+          "rating": 4.2,
+          "tier": 2
+        }
+      ],
+      "extras": [
+        {
+          "id": "blockprint",
+          "name": "Block-printing workshop, Bagru",
+          "note": "Print your own scarf with artisans"
+        },
+        {
+          "id": "alberthall",
+          "name": "Albert Hall lit up at night",
+          "note": "Indo-Saracenic museum after dark"
+        },
+        {
+          "id": "galtaji",
+          "name": "Galta Ji temple morning",
+          "note": "Natural springs and temple complex"
+        },
+        {
+          "id": "chokhi",
+          "name": "Chokhi Dhani folk evening",
+          "note": "Rajasthani dance, puppetry and dinner"
+        }
+      ]
+    },
+    "kyoto": {
+      "key": "kyoto",
+      "name": "Kyoto",
+      "country": "Japan",
+      "domestic": false,
+      "region": "Kansai",
+      "sights": [
+        {
+          "id": "fushimi",
+          "name": "Fushimi Inari Taisha",
+          "tags": [
+            "Culture",
+            "Sightseeing",
+            "Nature"
+          ],
+          "note": "Thousands of torii gates — go before 8am",
+          "dur": "2–3 hrs"
+        },
+        {
+          "id": "kiyomizu",
+          "name": "Kiyomizu-dera & Higashiyama lanes",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Wooden stage temple and old-town slopes",
+          "dur": "3 hrs"
+        },
+        {
+          "id": "arashiyama",
+          "name": "Arashiyama Bamboo Grove",
+          "tags": [
+            "Nature",
+            "Sightseeing"
+          ],
+          "note": "Bamboo path, Tenryū-ji gardens, river walk",
+          "dur": "Half day"
+        },
+        {
+          "id": "kinkaku",
+          "name": "Kinkaku-ji (Golden Pavilion)",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Gold-leaf pavilion over a mirror pond",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "philosopher",
+          "name": "Philosopher's Path",
+          "tags": [
+            "Nature",
+            "Relaxation"
+          ],
+          "note": "Canal-side walk between Ginkaku-ji and Nanzen-ji",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "gion",
+          "name": "Gion evening walk",
+          "tags": [
+            "Culture"
+          ],
+          "note": "Lantern-lit Hanamikoji and Shirakawa canal",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "nara",
+          "name": "Nara day trip",
+          "tags": [
+            "Culture",
+            "Nature",
+            "Sightseeing"
+          ],
+          "note": "Tōdai-ji Buddha and friendly deer park",
+          "dur": "Full day"
+        },
+        {
+          "id": "teramachi",
+          "name": "Teramachi & Shinkyogoku arcades",
+          "tags": [
+            "Shopping"
+          ],
+          "note": "Covered streets for stationery and souvenirs",
+          "dur": "2 hrs"
+        }
+      ],
+      "food": [
+        {
+          "id": "arabica",
+          "name": "% Arabica Higashiyama",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Tiny specialty coffee bar near Yasaka Pagoda",
+          "price": "¥"
+        },
+        {
+          "id": "nishiki",
+          "name": "Nishiki Market tasting",
+          "tags": [
+            "Street food",
+            "Local food"
+          ],
+          "note": "'Kyoto's kitchen' — tamagoyaki, pickles, skewers",
+          "price": "¥"
+        },
+        {
+          "id": "shigetsu",
+          "name": "Shigetsu at Tenryū-ji",
+          "tags": [
+            "Local food",
+            "Vegetarian"
+          ],
+          "note": "Shōjin ryōri Buddhist vegetarian lunch",
+          "price": "¥¥¥"
+        },
+        {
+          "id": "pontocho",
+          "name": "Pontochō alley dinner",
+          "tags": [
+            "Local food",
+            "Fine dining"
+          ],
+          "note": "Kaiseki and yakitori by the Kamo River",
+          "price": "¥¥¥"
+        },
+        {
+          "id": "owariya",
+          "name": "Honke Owariya",
+          "tags": [
+            "Local food",
+            "Vegetarian"
+          ],
+          "note": "Soba shop running since 1465",
+          "price": "¥¥"
+        },
+        {
+          "id": "weekenders",
+          "name": "Weekenders Coffee Tominokoji",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Roastery hidden in a parking courtyard",
+          "price": "¥"
+        }
+      ],
+      "stays": [
+        {
+          "id": "machiya",
+          "name": "Machiya townhouse, Higashiyama",
+          "type": "Airbnb",
+          "note": "Restored wooden townhouse, tatami rooms",
+          "price": 14000,
+          "rating": 4.8,
+          "tier": 2
+        },
+        {
+          "id": "ryokan",
+          "name": "Gion ryokan with kaiseki",
+          "type": "Boutique",
+          "note": "Traditional inn, dinner and onsen bath",
+          "price": 26000,
+          "rating": 4.9,
+          "tier": 3
+        },
+        {
+          "id": "stationhotel",
+          "name": "Hotel near Kyoto Station",
+          "type": "Hotel",
+          "note": "Easy rail access to Nara and Osaka",
+          "price": 9500,
+          "rating": 4.3,
+          "tier": 2
+        },
+        {
+          "id": "piece",
+          "name": "Piece Hostel Sanjo",
+          "type": "Hotel",
+          "note": "Design hostel with private rooms",
+          "price": 4200,
+          "rating": 4.5,
+          "tier": 1
+        },
+        {
+          "id": "kamoapt",
+          "name": "Kamo River apartment",
+          "type": "Airbnb",
+          "note": "Compact 1-bed, walk to Gion",
+          "price": 7800,
+          "rating": 4.6,
+          "tier": 1
+        }
+      ],
+      "extras": [
+        {
+          "id": "kamo",
+          "name": "Kamo River evening stroll",
+          "note": "Riverbank sunset with the locals"
+        },
+        {
+          "id": "teaceremony",
+          "name": "Tea ceremony in Gion",
+          "note": "45-minute matcha ceremony with a host"
+        },
+        {
+          "id": "sento",
+          "name": "Neighbourhood sentō bath",
+          "note": "Classic public bath — a very local evening"
+        },
+        {
+          "id": "imperial",
+          "name": "Kyoto Imperial Palace gardens",
+          "note": "Wide, quiet gardens in the city centre"
+        }
+      ]
+    },
+    "bali": {
+      "key": "bali",
+      "name": "Bali",
+      "country": "Indonesia",
+      "domestic": false,
+      "region": "Ubud & Uluwatu",
+      "sights": [
+        {
+          "id": "tegallalang",
+          "name": "Tegallalang rice terraces",
+          "tags": [
+            "Nature",
+            "Sightseeing"
+          ],
+          "note": "Emerald terraces — best early morning",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "uluwatu",
+          "name": "Uluwatu Temple & Kecak dance",
+          "tags": [
+            "Culture",
+            "Sightseeing"
+          ],
+          "note": "Cliff temple and fire dance at sunset",
+          "dur": "3 hrs"
+        },
+        {
+          "id": "monkeyforest",
+          "name": "Ubud Sacred Monkey Forest",
+          "tags": [
+            "Nature"
+          ],
+          "note": "Mossy temples in a jungle sanctuary",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "tirtaempul",
+          "name": "Tirta Empul water temple",
+          "tags": [
+            "Culture"
+          ],
+          "note": "Holy spring purification pools",
+          "dur": "2 hrs"
+        },
+        {
+          "id": "batur",
+          "name": "Mount Batur sunrise trek",
+          "tags": [
+            "Adventure",
+            "Nature"
+          ],
+          "note": "2-hour climb for sunrise above the clouds",
+          "dur": "Early start"
+        },
+        {
+          "id": "artmarket",
+          "name": "Ubud Art Market",
+          "tags": [
+            "Shopping"
+          ],
+          "note": "Woven bags, sarongs and wood carvings",
+          "dur": "1.5 hrs"
+        },
+        {
+          "id": "penida",
+          "name": "Nusa Penida day trip",
+          "tags": [
+            "Adventure",
+            "Nature",
+            "Sightseeing"
+          ],
+          "note": "Kelingking cliffs and Crystal Bay",
+          "dur": "Full day"
+        }
+      ],
+      "food": [
+        {
+          "id": "clear",
+          "name": "Clear Café, Ubud",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Plant-forward bowls and juices",
+          "price": "Rp"
+        },
+        {
+          "id": "ibuoka",
+          "name": "Warung Ibu Oka",
+          "tags": [
+            "Local food"
+          ],
+          "note": "Famous babi guling (suckling pig)",
+          "price": "Rp"
+        },
+        {
+          "id": "locavore",
+          "name": "Locavore NXT",
+          "tags": [
+            "Fine dining",
+            "Vegetarian"
+          ],
+          "note": "Tasting menu of hyper-local produce",
+          "price": "Rp Rp Rp"
+        },
+        {
+          "id": "revolver",
+          "name": "Revolver Espresso",
+          "tags": [
+            "Cafés"
+          ],
+          "note": "Hidden laneway coffee and brunch",
+          "price": "Rp"
+        },
+        {
+          "id": "singlefin",
+          "name": "Single Fin, Uluwatu",
+          "tags": [
+            "Local food"
+          ],
+          "note": "Clifftop sunset over the surf break",
+          "price": "Rp Rp"
+        },
+        {
+          "id": "zest",
+          "name": "Zest Ubud",
+          "tags": [
+            "Cafés",
+            "Vegetarian"
+          ],
+          "note": "Vegan café with jungle views",
+          "price": "Rp Rp"
+        }
+      ],
+      "stays": [
+        {
+          "id": "junglevilla",
+          "name": "Ubud jungle villa",
+          "type": "Airbnb",
+          "note": "Private pool facing the rice fields",
+          "price": 8500,
+          "rating": 4.8,
+          "tier": 2
+        },
+        {
+          "id": "clifftop",
+          "name": "Uluwatu clifftop resort",
+          "type": "Hotel",
+          "note": "Infinity pool over the Indian Ocean",
+          "price": 18000,
+          "rating": 4.7,
+          "tier": 3
+        },
+        {
+          "id": "guesthouse",
+          "name": "Family guesthouse, Ubud",
+          "type": "Hotel",
+          "note": "Balinese compound, breakfast included",
+          "price": 3000,
+          "rating": 4.6,
+          "tier": 1
+        },
+        {
+          "id": "bisma",
+          "name": "Bisma Eight, Ubud",
+          "type": "Boutique",
+          "note": "Design hotel with a canopy pool",
+          "price": 14000,
+          "rating": 4.8,
+          "tier": 3
+        },
+        {
+          "id": "bambooloft",
+          "name": "Bamboo loft, Sidemen",
+          "type": "Airbnb",
+          "note": "Open-air bamboo house in the valley",
+          "price": 5200,
+          "rating": 4.7,
+          "tier": 1
+        }
+      ],
+      "extras": [
+        {
+          "id": "cooking",
+          "name": "Balinese cooking class",
+          "note": "Market visit and six-dish lesson"
+        },
+        {
+          "id": "spa",
+          "name": "Balinese massage afternoon",
+          "note": "Two hours of traditional spa time"
+        },
+        {
+          "id": "campuhan",
+          "name": "Campuhan Ridge walk",
+          "note": "Easy ridge trail just outside Ubud"
+        },
+        {
+          "id": "echo",
+          "name": "Sunset at Echo Beach",
+          "note": "Black-sand beach and seafood grills"
+        }
+      ]
+    }
+  }
+}
