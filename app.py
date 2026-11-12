@@ -11,7 +11,7 @@ import streamlit as st
 import planner
 
 DATA_PATH = Path(__file__).parent / "data" / "places.json"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 INTERESTS = ["Sightseeing", "Culture", "Nature", "Adventure", "Relaxation", "Shopping"]
 FOOD_PREFS = ["Local food", "Street food", "Cafés", "Vegetarian", "Fine dining"]
