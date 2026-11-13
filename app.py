@@ -116,17 +116,29 @@ def go_community():
     st.session_state.view = "community"
 
 
+def go(view):
+    st.session_state.view = view
+
+
+def open_traveller(author):
+    st.session_state.traveller = author
+    st.session_state.view = "traveller"
+
+
 def nav_bar():
-    """Top navigation like the prototype header (Explore / Plan / Community)."""
+    """Top navigation like the prototype (Explore / Plan / Community / My trips / Profile)."""
     view = st.session_state.view
-    row = st.container(horizontal=True, vertical_alignment="center")
-    row.image(str(ASSETS / "logo.png"), width=130)
-    row.space("stretch")
-    row.button("Explore", type="primary" if view == "home" else "tertiary", on_click=go_home)
-    row.button("Plan", type="primary" if view in ("intake", "plan") else "tertiary",
-               on_click=start_intake)
-    row.button("Community", type="primary" if view == "community" else "tertiary",
-               on_click=go_community)
+    st.image(str(ASSETS / "logo.png"), width=130)
+    row = st.container(horizontal=True, vertical_alignment="center", gap="small")
+    for label, views, action in (
+        ("Explore", ("home",), go_home),
+        ("Plan", ("intake", "plan"), start_intake),
+        ("Community", ("community", "traveller"), go_community),
+        ("My trips", ("trips",), lambda: go("trips")),
+        ("Profile", ("profile",), lambda: go("profile")),
+    ):
+        row.button(label, key=f"nav_{label}", on_click=action,
+                   type="primary" if view in views else "tertiary")
 
 
 def start_intake(dest_key=None):
@@ -197,7 +209,7 @@ def show_home(destinations):
     st.divider()
     st.image(str(ASSETS / "logo.png"), width=110)
     st.caption("**PLAN LESS. EXPERIENCE MORE.** · Made for the journeys that stay with you.")
-    st.caption("Coming later: My trips and Profile.")
+    st.caption("Profile and My trips are kept for this visit only — accounts come later.")
 
 
 # ---------------- Community: sample traveller stories ----------------
@@ -215,6 +227,7 @@ def make_it_mine(story):
     ss.brief = {**story["brief"], "days": len(story["itinerary"]["days"]),
                 "interests": [], "food": [], "must_visit": ""}
     ss.source_label = f"{story['author']}'s shared itinerary"
+    ss.trip_id = None
     ss.chat = [("assistant", "Your copy is ready. What would you like to change?")]
     ss.view = "plan"
 
@@ -229,9 +242,11 @@ def story_card(story, destinations):
             <div style="font-size:13px; opacity:.9;">{days} DAYS · {'OPEN TO JOIN' if story['open_to_join'] else 'PREVIOUS TRIP'}</div>
         """, radius=14)
         initials = "".join(w[0] for w in story["author"].split()[:2])
-        st.markdown(
-            f":color-badge[{initials}] **{story['author']}** :small[{story['handle']} · {story['home']}]"
-        )
+        who = st.container(horizontal=True, vertical_alignment="center", gap="small")
+        who.markdown(f":color-badge[{initials}]")
+        who.button(story["author"], key=f"author_{story['key']}", type="tertiary",
+                   on_click=open_traveller, args=(story["author"],), help="View profile")
+        who.markdown(f":small[{story['handle']} · {story['home']}]")
         st.subheader(story["title"])
         st.write(story["summary"])
         st.caption(f"{days} days · {d['country']} · :gray-badge[Sample story]")
@@ -250,6 +265,151 @@ def story_card(story, destinations):
                 names = [places[i["id"]]["name"] for sl in planner.SLOTS for i in day[sl]]
                 st.markdown(f"**Day {day['day']}** · {day['title']}  \n:small[{' · '.join(names) or 'Free time'}]")
             st.caption("Make it Mine opens your own copy in the planner. The original stays as it is.")
+
+
+def show_traveller(destinations):
+    """Read-only profile of a sample traveller, opened from a story."""
+    author = st.session_state.get("traveller")
+    stories = [s for s in load_stories() if s["author"] == author]
+    st.button("Back to Community", icon=":material/arrow_back:", type="tertiary",
+              on_click=go_community)
+    if not stories:
+        st.caption("This traveller couldn't be found.")
+        return
+    first = stories[0]
+    eyebrow("SAMPLE TRAVELLER")
+    initials = "".join(w[0] for w in author.split()[:2])
+    st.title(f":color-badge[{initials}] {author}")
+    st.caption(f"{first['handle']} · {first['home']}")
+    st.info("This is a sample profile to show how Community works.", icon=":material/info:")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Trips shared", len(stories))
+    c2.metric("Days of travel", sum(len(s["itinerary"]["days"]) for s in stories))
+    c3.metric("Likes", sum(s["likes"] for s in stories))
+    st.subheader("Trips")
+    for story in stories:
+        story_card(story, destinations)
+
+
+# ---------------- My trips (kept for this visit only — no database) ----------------
+def save_trip():
+    """Save the plan on screen to My trips (or update it if it's already saved)."""
+    ss = st.session_state
+    trips = ss.setdefault("my_trips", {})
+    if not ss.get("trip_id"):
+        ss.trip_counter = ss.get("trip_counter", 0) + 1
+        ss.trip_id = f"trip{ss.trip_counter}"
+    trips[ss.trip_id] = {
+        "dest_key": ss.dest_key,
+        "brief": dict(ss.brief),
+        "itinerary": json.loads(json.dumps(ss.itinerary)),
+        "source_label": ss.get("source_label", ""),
+    }
+    ss.saved_note = "Saved to My trips."
+
+
+def open_trip(trip_id):
+    ss = st.session_state
+    t = ss.my_trips[trip_id]
+    ss.itinerary = json.loads(json.dumps(t["itinerary"]))
+    ss.brief, ss.dest_key, ss.source_label = dict(t["brief"]), t["dest_key"], t["source_label"]
+    ss.warnings, ss.trip_id = [], trip_id
+    ss.chat = [("assistant", "Welcome back. What would you like to change?")]
+    ss.view = "plan"
+
+
+def remove_trip(trip_id):
+    ss = st.session_state
+    ss.my_trips.pop(trip_id, None)
+    if ss.get("trip_id") == trip_id:
+        ss.trip_id = None
+
+
+def show_trips(destinations):
+    trips = st.session_state.get("my_trips", {})
+    eyebrow("YOUR LITTLE COLLECTION")
+    st.title(f'Trips to :color[*remember.*]{{foreground="{TEAL}"}}')
+    st.caption(
+        "The plans you've saved, ready when you are. Without accounts they're kept for this "
+        "visit only — download a trip to keep it."
+    )
+    if not trips:
+        eyebrow("A FRESH PAGE")
+        st.subheader("Nothing saved just yet.")
+        st.caption("Start with a place that's been on your mind. The rest will follow.")
+        st.button("Plan a trip", type="primary", icon=":material/auto_awesome:", on_click=start_intake)
+        return
+    for trip_id, t in reversed(list(trips.items())):
+        d = destinations[t["dest_key"]]
+        days = len(t["itinerary"]["days"])
+        with st.container(border=True):
+            photo_block(f"{t['dest_key']}.jpg", 140, f"""
+                <div style="font-size:12px; letter-spacing:2px; font-weight:700;">SAVED PRIVATELY</div>
+                <div style="font-size:24px; font-weight:700;">{d['name']} · {days} days</div>
+            """, radius=14)
+            st.caption(f"{t['brief']['pace']} pace · {t['brief']['budget']} · {t['brief']['companions']}"
+                       + (f" · based on {t['source_label']}" if t["source_label"] else ""))
+            row = st.container(horizontal=True)
+            row.button("Open", key=f"open_{trip_id}", type="primary", icon=":material/map:",
+                       on_click=open_trip, args=(trip_id,))
+            row.download_button(
+                "Download", data=itinerary_markdown(t["itinerary"], d, t["brief"]),
+                file_name=f"travello-{t['dest_key']}-{days}-days.md", mime="text/markdown",
+                key=f"dl_{trip_id}", icon=":material/download:",
+            )
+            row.button("Remove", key=f"rm_{trip_id}", type="tertiary", icon=":material/delete:",
+                       on_click=remove_trip, args=(trip_id,))
+
+
+# ---------------- Profile (kept for this visit only — no accounts) ----------------
+def show_profile():
+    ss = st.session_state
+    profile = ss.get("profile")
+    eyebrow("TRAVELLER PROFILE")
+    if not profile or ss.get("editing_profile"):
+        st.title("What should we call you?")
+        st.caption("Kept for this visit only — there are no accounts in this version.")
+        with st.form("profile_form"):
+            p = profile or {}
+            name = st.text_input("Your name", value=p.get("name", ""))
+            username = st.text_input("Username", value=p.get("username", ""), placeholder="e.g. your.travel.story",
+                                     help="3–20 letters, numbers, dots or underscores.")
+            home = st.text_input("Home city", value=p.get("home", ""), placeholder="e.g. Kolkata, India")
+            style = st.pills("What feels like you?", list(planner.PACE_ITEMS),
+                             default=p.get("style"))
+            budget = st.pills("Usual budget", list(planner.BUDGET_TIER), default=p.get("budget"))
+            with_ = st.pills("Usually with", COMPANIONS, default=p.get("with"))
+            if st.form_submit_button("Save profile", type="primary", width="stretch"):
+                uname = username.strip().lstrip("@")
+                if not name.strip():
+                    st.warning("Please add your name.")
+                elif not (3 <= len(uname) <= 20 and uname[0].isalpha()
+                          and all(ch.isalnum() or ch in "._" for ch in uname)):
+                    st.warning("Username: 3–20 characters, start with a letter; letters, numbers, dots or underscores.")
+                else:
+                    ss.profile = {"name": name.strip(), "username": uname, "home": home.strip(),
+                                  "style": style, "budget": budget, "with": with_}
+                    ss.editing_profile = False
+                    st.rerun()
+        if profile:
+            st.button("Cancel", on_click=lambda: ss.update(editing_profile=False))
+        return
+
+    initials = "".join(w[0] for w in profile["name"].split()[:2]).upper()
+    st.title(f":color-badge[{initials}] {profile['name']}")
+    st.caption(f"@{profile['username']}" + (f" · {profile['home']}" if profile["home"] else ""))
+    tags = [t for t in (profile["style"] and f"{profile['style']} pace", profile["budget"],
+                        profile["with"] and f"Usually {profile['with'].lower()}") if t]
+    if tags:
+        st.markdown(" ".join(f":blue-badge[{t}]" for t in tags))
+    trips = ss.get("my_trips", {})
+    c1, c2 = st.columns(2)
+    c1.metric("Trips saved", len(trips))
+    c2.metric("Days planned", sum(len(t["itinerary"]["days"]) for t in trips.values()))
+    row = st.container(horizontal=True)
+    row.button("Edit profile", icon=":material/edit:", on_click=lambda: ss.update(editing_profile=True))
+    row.button("View My trips", icon=":material/bookmark:", on_click=lambda: go("trips"))
+    st.caption("Trips — only you can see these. Profile and trips are kept for this visit only.")
 
 
 def show_community(destinations):
@@ -414,6 +574,7 @@ def generate(destinations, api_key, model):
     ss.itinerary, ss.warnings, ss.brief, ss.dest_key = itin, warnings, brief, a["destination"]
     ss.chat = [("assistant", "Your plan is ready. What would you like to change?")]
     ss.source_label = ""
+    ss.trip_id = None  # a new plan, not yet in My trips
     ss.view = "plan"
     st.rerun()
 
@@ -533,12 +694,17 @@ def show_plan(destinations, api_key, model):
         "advice and bookings before you go."
     )
 
+    saved = ss.get("trip_id") in ss.get("my_trips", {})
+    st.button("Update in My trips" if saved else "Save itinerary to My trips", type="primary",
+              icon=":material/check:", width="stretch", on_click=save_trip)
+    if ss.pop("saved_note", ""):
+        st.success("Saved to My trips (kept for this visit — download to keep a copy).",
+                   icon=":material/bookmark_added:")
     st.download_button(
         "Download itinerary",
         data=itinerary_markdown(itin, dest, ss.brief),
         file_name=f"travello-{ss.dest_key}-{len(itin['days'])}-days.md",
         mime="text/markdown",
-        type="primary",
         icon=":material/download:",
         width="stretch",
     )
@@ -571,5 +737,11 @@ elif ss.view == "intake" and "intake_step" in ss:
     show_intake(destinations, api_key, model)
 elif ss.view == "community":
     show_community(destinations)
+elif ss.view == "traveller":
+    show_traveller(destinations)
+elif ss.view == "trips":
+    show_trips(destinations)
+elif ss.view == "profile":
+    show_profile()
 else:
     show_home(destinations)
