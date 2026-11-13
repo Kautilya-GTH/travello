@@ -89,20 +89,17 @@ def _brief_text(brief):
 - Food preferences: {', '.join(brief['food']) or 'no preference'} (prefer food places with these tags)"""
 
 
-def _call_with_retry(client, model, prompt):
+def _call_with_retry(client, model, prompt, json_mode):
     """Call one model up to MAX_ATTEMPTS times, retrying only on 429/503 (busy).
 
     Returns the response, or None if the model is busy or timed out.
     A timeout (504) gives up on this model at once rather than waiting again.
     Any other error (bad key, bad request...) is raised straight away.
     """
+    config = types.GenerateContentConfig(response_mime_type="application/json") if json_mode else None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            return client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
-            )
+            return client.models.generate_content(model=model, contents=prompt, config=config)
         except errors.APIError as e:
             if e.code == TIMEOUT_CODE:
                 return None
@@ -121,17 +118,27 @@ def _fallback_model():
         return None
 
 
-def _ask_gemini(client, model, prompt):
-    """Call Gemini asking for JSON and return the parsed dict."""
+def call_gemini(client, model, prompt, json_mode=True):
+    """Main model with retries, then the fallback model. Returns (response, model_used).
+
+    Raises PlannerError with a friendly message if neither model answers.
+    """
     try:
-        resp = _call_with_retry(client, model, prompt)
+        resp = _call_with_retry(client, model, prompt, json_mode)
         fallback = _fallback_model()
         if resp is None and fallback and fallback != model:
-            resp = _call_with_retry(client, fallback, prompt)
+            model = fallback
+            resp = _call_with_retry(client, model, prompt, json_mode)
     except Exception as e:
         raise PlannerError(f"Couldn't reach Gemini ({type(e).__name__}). Please try again.") from e
     if resp is None:
         raise PlannerError("Gemini is busy, please try again in a minute.")
+    return resp, model
+
+
+def _ask_gemini(client, model, prompt):
+    """Call Gemini asking for JSON and return the parsed dict."""
+    resp, _ = call_gemini(client, model, prompt)
 
     try:
         data = json.loads(resp.text or "")

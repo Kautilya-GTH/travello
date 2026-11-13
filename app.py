@@ -143,10 +143,14 @@ if "itinerary" in st.session_state:
 # --- Temporary: connection check from Step 1 (removed in Step 4) ---
 with st.expander("Developer: test Gemini connection"):
     if st.button("Test Gemini"):
-        try:
-            resp = get_client(api_key).models.generate_content(
-                model=model, contents="Reply with exactly: Travello connected."
-            )
-            st.success(f"{model}: {resp.text.strip()}")
-        except Exception as e:  # show the real error so we can debug it
-            st.error(f"Gemini call failed: {e}")
+        # Same retry + fallback path as the planner, so this tests what users get.
+        with st.spinner("Contacting Gemini…"):
+            try:
+                resp, used = planner.call_gemini(
+                    get_client(api_key), model, "Reply with exactly: Travello connected.",
+                    json_mode=False,
+                )
+                note = "" if used == model else f" (fallback — {model} was busy)"
+                st.success(f"{used}: {(resp.text or '').strip()}{note}")
+            except planner.PlannerError as e:
+                st.error(str(e))
