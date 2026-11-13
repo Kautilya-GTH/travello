@@ -181,6 +181,62 @@ def _ask_gemini(client, model, prompt):
     return data
 
 
+def suggest_places(client, model, place):
+    """For a destination that is NOT in places.json: ask Gemini for a place list in
+    the same shape as places.json. These are AI suggestions, not verified, and the
+    UI labels them so. We assign the ids ourselves, so later steps can still check
+    that the plan only uses places from this list."""
+    prompt = f"""You help a trip planner. Destination: {place['name']}, {place['region']}, {place['country']}.
+List REAL, well-known places in or near this destination that you are confident exist.
+Never list places from another city or country. If unsure about a place, leave it out.
+Return JSON only, in exactly this shape:
+{{
+  "sights": [{{"name": "...", "note": "under 15 words", "tags": ["Culture"], "dur": "2 hrs"}}],
+  "food":   [{{"name": "...", "note": "under 15 words", "tags": ["Local food"], "price": "₹₹"}}],
+  "extras": [{{"name": "...", "note": "under 15 words", "tags": ["Relaxation"], "dur": "1 hr"}}],
+  "stays":  [{{"name": "...", "type": "Hotel", "tier": 2, "price": 6000, "rating": 4.3, "note": "under 15 words"}}]
+}}
+Give 8 sights, 6 food places, 4 extras and 5 stays covering tiers 1 (budget), 2 (mid-range)
+and 3 (premium). Stay price is an approximate INR price per night (a number).
+Use tags from: Sightseeing, Culture, Nature, Adventure, Relaxation, Shopping, Food,
+Local food, Street food, Cafés, Vegetarian, Fine dining. Stay type is Hotel, Boutique or Airbnb."""
+    resp, _ = call_gemini(client, model, prompt)
+    try:
+        data = json.loads(resp.text or "")
+    except json.JSONDecodeError as e:
+        raise PlannerError("Gemini sent back something we couldn't read. Please try again.") from e
+    if not isinstance(data, dict):
+        raise PlannerError("Gemini didn't return a place list. Please try again.")
+
+    dest = {**place, "custom": True}
+    for cat, prefix in (("sights", "s"), ("food", "f"), ("extras", "e"), ("stays", "h")):
+        items = []
+        for n, raw in enumerate(data.get(cat) or [], start=1):
+            if not isinstance(raw, dict) or not str(raw.get("name", "")).strip():
+                continue
+            item = {
+                "id": f"{prefix}{n}",
+                "name": str(raw["name"]).strip(),
+                "note": str(raw.get("note", "")).strip(),
+                "tags": [str(t) for t in raw.get("tags", []) if isinstance(t, str)][:4],
+            }
+            if cat == "stays":
+                try:
+                    item.update(type=str(raw.get("type", "Hotel")), tier=min(3, max(1, int(raw.get("tier", 2)))),
+                                price=int(float(raw.get("price", 5000))), rating=round(float(raw.get("rating", 4.0)), 1))
+                except (TypeError, ValueError):
+                    continue
+            else:
+                for k in ("dur", "price"):
+                    if raw.get(k):
+                        item[k] = str(raw[k])
+            items.append(item)
+        dest[cat] = items
+    if not dest["sights"] or not dest["stays"]:
+        raise PlannerError(f"Couldn't find enough places for {place['name']}. Please try again.")
+    return dest
+
+
 def validate(data, dest, num_days, exclude=()):
     """Keep only ids that exist in places.json. Returns (itinerary, warnings).
 

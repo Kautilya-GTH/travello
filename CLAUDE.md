@@ -37,6 +37,10 @@ Sign-in, publishing and real storage stay V2.
 4. **Download** — let the user download the final itinerary (text or markdown).
 
 ### AI design rules
+- (Team decision, 13 Nov) Destinations outside places.json can be searched (Photon geocoder).
+  For those, Gemini first suggests a place list (`suggest_places`), shown with an
+  "AI-suggested, not verified" label; the plan is then validated against that list.
+  The four curated destinations keep the strict places.json rule below.
 - Gemini may ONLY use places, food, stays and extras that exist in `data/places.json`,
   referenced by their `id`. Validate the returned ids in Python and drop or flag anything
   not in the list. This prevents invented places.

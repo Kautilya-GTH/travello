@@ -149,8 +149,8 @@ def start_intake(dest_key=None):
     ss.intake_error = ""
     ss.w_interests = []
     hello = "Hi! I'm your Travello assistant."
-    if dest_key:
-        d = load_places()[dest_key]
+    d = get_dest(dest_key) if dest_key else None
+    if d:
         ss.answers = {"destination": dest_key,
                       "travel_type": "Domestic" if d["domestic"] else "International"}
         ss.intake_step = "days"
@@ -340,10 +340,10 @@ def show_trips(destinations):
         st.button("Plan a trip", type="primary", icon=":material/auto_awesome:", on_click=start_intake)
         return
     for trip_id, t in reversed(list(trips.items())):
-        d = destinations[t["dest_key"]]
+        d = get_dest(t["dest_key"])
         days = len(t["itinerary"]["days"])
         with st.container(border=True):
-            photo_block(f"{t['dest_key']}.jpg", 140, f"""
+            photo_block(dest_image(t["dest_key"]), 140, f"""
                 <div style="font-size:12px; letter-spacing:2px; font-weight:700;">SAVED PRIVATELY</div>
                 <div style="font-size:24px; font-weight:700;">{d['name']} · {days} days</div>
             """, radius=14)
@@ -433,8 +433,7 @@ def show_community(destinations):
 
 # ---------------- Intake: the assistant asks, the user taps or types ----------------
 def question(step, a):
-    places = load_places()
-    name = places[a["destination"]]["name"] if a.get("destination") else "there"
+    name = get_dest(a["destination"])["name"] if a.get("destination") else "there"
     return {
         "travel_type": "Is this a domestic or an international trip?",
         "destination": "Lovely! Where in India would you like to go? Search below."
@@ -473,34 +472,85 @@ def step_options(step, a):
     return []
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def world_search(query):
+    """Look up cities/regions worldwide with the free Photon geocoder (OpenStreetMap
+    data, no key needed). Returns [] if the service is slow or down."""
+    import urllib.parse
+    import urllib.request
+
+    url = ("https://photon.komoot.io/api/?" + urllib.parse.urlencode({"q": query, "limit": 15, "lang": "en"})
+           + "&layer=city&layer=state&layer=district&layer=locality")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "travello-student-mvp"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            features = json.load(r).get("features", [])
+    except Exception:
+        return []
+    out = []
+    for f in features:
+        p = f.get("properties", {})
+        if p.get("name") and p.get("country") and p.get("countrycode"):
+            region = p.get("state") if p.get("state") and p.get("state") != p["name"] else ""
+            out.append({"name": p["name"], "region": region, "country": p["country"],
+                        "domestic": p["countrycode"].upper() == "IN"})
+    return out
+
+
+def get_dest(key):
+    """A destination by key: curated (places.json) or one the user searched for.
+    Searched ones get their place lists from Gemini on the suggestions step."""
+    places = load_places()
+    if key in places:
+        return places[key]
+    ss = st.session_state
+    return ss.get("generated_dests", {}).get(key) or ss.get("custom_places", {}).get(key)
+
+
+def dest_image(key):
+    return f"{key}.jpg" if (ASSETS / f"{key}.jpg").exists() else "hero.jpg"
+
+
 def search_destinations(query, travel_type):
-    """Destinations whose name, region or country contains the query, limited to
-    domestic (India) or international places. Only curated places can be found,
-    because the planner may only use places.json."""
+    """Curated destinations first (checked places), then any matching city or region
+    worldwide, limited to India for Domestic and outside India for International."""
     q = query.strip().lower()
     if len(q) < 2:
         return []
     domestic = travel_type == "Domestic"
-    return [
+    results = [
         (k, d) for k, d in load_places().items()
-        if d["domestic"] == domestic
-        and any(q in d[f].lower() for f in ("name", "region", "country"))
+        if d["domestic"] == domestic and any(q in d[f].lower() for f in ("name", "region", "country"))
     ]
+    seen = {d["name"].lower() for _, d in results}
+    found = st.session_state.setdefault("found_places", {})
+    for p in world_search(query.strip()):
+        if p["domestic"] != domestic or p["name"].lower() in seen:
+            continue
+        seen.add(p["name"].lower())
+        key = "custom-" + "-".join(
+            "".join(ch for ch in part.lower() if ch.isalnum()) for part in (p["name"], p["region"], p["country"]) if part
+        )
+        found[key] = {**p, "key": key}
+        results.append((key, found[key]))
+        if len(results) >= 7:
+            break
+    return results
 
 
 def no_match_text(query, travel_type):
-    scope = "in India" if travel_type == "Domestic" else "abroad"
-    available = ", ".join(
-        d["name"] for d in load_places().values() if d["domestic"] == (travel_type == "Domestic")
-    )
-    return (f"No matching places for “{query.strip()}” yet — try another spelling. "
-            f"Travello currently plans {available} {scope}.")
+    scope = "in India" if travel_type == "Domestic" else "outside India"
+    return (f"No matching places {scope} for “{query.strip()}” — try another spelling, "
+            "or a nearby city.")
 
 
 def pick_destination(key):
-    d = load_places()[key]
-    st.session_state.dest_search = ""
-    answer(f"{d['name']}, {d['region']}, {d['country']}", key)
+    ss = st.session_state
+    if key not in load_places():
+        ss.setdefault("custom_places", {})[key] = ss.found_places[key]
+    d = get_dest(key)
+    ss.dest_search = ""
+    answer(", ".join(x for x in (d["name"], d["region"], d["country"]) if x), key)
 
 
 def answer(label, value):
@@ -657,8 +707,25 @@ def place_card(p, dest, interests):
 def show_recs(destinations, api_key, model):
     ss = st.session_state
     a = ss.answers
-    dest = destinations[a["destination"]]
+    dest = get_dest(a["destination"])
     interests = a.get("interests") or []
+    if "sights" not in dest:
+        # A searched destination outside places.json: ask Gemini for its place list once.
+        with st.spinner(f"Finding places to see, eat and stay in {dest['name']}…"):
+            try:
+                full = planner.suggest_places(get_client(api_key), model, dest)
+            except planner.PlannerError as e:
+                st.error(str(e))
+                st.button("Try again", type="primary")
+                return
+        ss.setdefault("generated_dests", {})[a["destination"]] = full
+        st.rerun()
+    if dest.get("custom"):
+        st.warning(
+            f"{dest['name']} isn't in Travello's checked list yet, so these places are "
+            "AI-suggested and not verified. Use the Google Maps links and check before you go.",
+            icon=":material/travel_explore:",
+        )
 
     top = st.container(horizontal=True, vertical_alignment="center")
     top.button("Edit trip details", icon=":material/arrow_back:", type="tertiary",
@@ -727,10 +794,10 @@ def generate(destinations, api_key, model):
         "skip_ids": [pid for pid, v in picks.items() if v == "out"],
         "stay_id": ss.get("stay_pick"),
     }
-    with st.spinner(f"Finding places to see, eat and stay in {destinations[a['destination']]['name']}…"):
+    with st.spinner(f"Planning your days in {get_dest(a['destination'])['name']}…"):
         try:
             itin, warnings = planner.generate_itinerary(
-                get_client(api_key), model, brief, destinations[a["destination"]]
+                get_client(api_key), model, brief, get_dest(a["destination"])
             )
         except planner.PlannerError as e:
             st.error(str(e))
@@ -795,6 +862,8 @@ def itinerary_markdown(itin, dest, brief):
     else:
         lines.append("No stay could be matched.")
     lines += ["", "_Stays are sample listings, not verified properties or bookings._"]
+    if dest.get("custom"):
+        lines.append("_Places for this destination are AI-suggested and not verified. Check before you go._")
     return "\n".join(lines)
 
 
@@ -817,7 +886,7 @@ def apply_edit(request, dest, api_key, model):
 
 def show_plan(destinations, api_key, model):
     ss = st.session_state
-    dest = destinations[ss.dest_key]
+    dest = get_dest(ss.dest_key)
     itin = ss.itinerary
 
     # Pinned to the bottom of the page: the edit-by-chat box.
@@ -835,6 +904,9 @@ def show_plan(destinations, api_key, model):
     st.title(f'{dest["name"]}, :color[*your way.*]{{foreground="{TEAL}"}}')
     if ss.get("source_label"):
         st.caption(f"Your own copy, based on {ss.source_label}. Changes here never affect the original.")
+    if dest.get("custom"):
+        st.warning("AI-suggested places — not from Travello's checked list. Check each place "
+                   "on Google Maps before you go.", icon=":material/travel_explore:")
     if itin["summary"]:
         st.write(itin["summary"])
 
