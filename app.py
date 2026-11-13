@@ -459,8 +459,7 @@ def step_options(step, a):
     if step == "travel_type":
         return [("Domestic", "Domestic"), ("International", "International")]
     if step == "destination":
-        domestic = a.get("travel_type") == "Domestic"
-        return [(d["name"], k) for k, d in places.items() if d["domestic"] == domestic]
+        return []  # chosen with the search box instead of tap options
     if step == "days":
         return [(f"{n} days", n) for n in DAY_OPTIONS]
     if step == "budget":
@@ -472,6 +471,36 @@ def step_options(step, a):
     if step == "must_visit":
         return [("Skip", "")]
     return []
+
+
+def search_destinations(query, travel_type):
+    """Destinations whose name, region or country contains the query, limited to
+    domestic (India) or international places. Only curated places can be found,
+    because the planner may only use places.json."""
+    q = query.strip().lower()
+    if len(q) < 2:
+        return []
+    domestic = travel_type == "Domestic"
+    return [
+        (k, d) for k, d in load_places().items()
+        if d["domestic"] == domestic
+        and any(q in d[f].lower() for f in ("name", "region", "country"))
+    ]
+
+
+def no_match_text(query, travel_type):
+    scope = "in India" if travel_type == "Domestic" else "abroad"
+    available = ", ".join(
+        d["name"] for d in load_places().values() if d["domestic"] == (travel_type == "Domestic")
+    )
+    return (f"No matching places for “{query.strip()}” yet — try another spelling. "
+            f"Travello currently plans {available} {scope}.")
+
+
+def pick_destination(key):
+    d = load_places()[key]
+    st.session_state.dest_search = ""
+    answer(f"{d['name']}, {d['region']}, {d['country']}", key)
 
 
 def answer(label, value):
@@ -491,6 +520,14 @@ def answer_typed(text):
     step, low = ss.intake_step, text.strip().lower()
     if step == "must_visit":
         return answer(text.strip()[:200], text.strip()[:200])
+    if step == "destination":
+        matches = search_destinations(text, ss.answers.get("travel_type"))
+        if len(matches) == 1:
+            return pick_destination(matches[0][0])
+        ss.intake_error = ("Pick your destination from the search list so I know exactly "
+                           "where you mean." if matches
+                           else no_match_text(text, ss.answers.get("travel_type")))
+        return
     if step == "interests":
         picked = [i for i in INTERESTS if i.lower() in low]
         if picked:
@@ -532,7 +569,24 @@ def show_intake(destinations, api_key, model):
                 st.write(text)
 
         step = ss.intake_step
-        if step == "interests":
+        if step == "destination":
+            travel_type = ss.answers.get("travel_type")
+            query = st.text_input(
+                "Search destination", key="dest_search", type="search", live=True,
+                icon=":material/search:", label_visibility="collapsed",
+                placeholder="Search a city or place in India…" if travel_type == "Domestic"
+                else "Search a city or country abroad…",
+            )
+            matches = search_destinations(query or "", travel_type)
+            if matches:
+                st.caption("Matching places")
+                for k, d in matches:
+                    st.button(f"**{d['name']}** · {d['region']}, {d['country']}",
+                              key=f"dest_{k}", icon=":material/location_on:", type="tertiary",
+                              on_click=pick_destination, args=(k,))
+            elif query and len(query.strip()) >= 2:
+                st.caption(no_match_text(query, travel_type))
+        elif step == "interests":
             st.pills("Interests", INTERESTS, selection_mode="multi", key="w_interests",
                      label_visibility="collapsed")
             picked = ss.w_interests or []
