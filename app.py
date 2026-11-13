@@ -1,7 +1,6 @@
 """Travello — AI trip planner (MVP).
 
-Workflow: trip brief form -> Gemini itinerary -> day cards.
-(Chat edits and download come in later build steps.)
+Workflow: trip brief form -> Gemini itinerary -> day cards -> download.
 """
 import base64
 import json
@@ -123,6 +122,42 @@ def show_itinerary(itin, dest):
         st.caption("Stays are sample listings, not verified properties or bookings.")
 
 
+def itinerary_markdown(itin, dest, brief):
+    """Same content as the day cards, as a Markdown file the user can keep."""
+    places = lookup(dest)
+    lines = [f"# Your {brief['days']}-day {dest['name']} trip (Travello)", ""]
+    lines.append(
+        f"Budget: {brief['budget']} · Travelling with: {brief['companions']} · Pace: {brief['pace']}"
+    )
+    if itin["summary"]:
+        lines += ["", itin["summary"]]
+
+    for day in itin["days"]:
+        lines += ["", f"## Day {day['day']}" + (f" · {day['title']}" if day["title"] else "")]
+        for slot in planner.SLOTS:
+            lines += ["", f"**{slot.capitalize()}**"]
+            if not day[slot]:
+                lines.append("- Free time")
+            for item in day[slot]:
+                p = places[item["id"]]
+                extra = p.get("dur") or p.get("price") or ""
+                lines.append(
+                    f"- {p['name']}" + (f" ({extra})" if extra else "")
+                    + f" — {item['note'] or p['note']}"
+                )
+
+    lines += ["", "## Recommended stay"]
+    stay = itin["stay"]
+    if stay:
+        s = places[stay["id"]]
+        lines.append(f"{s['name']} · {s['type']} · ₹{s['price']:,}/night · rating {s['rating']}")
+        lines.append(stay["note"] or s["note"])
+    else:
+        lines.append("No stay could be matched.")
+    lines += ["", "_Stays are sample listings, not verified properties or bookings._"]
+    return "\n".join(lines)
+
+
 # ---------------- Page ----------------
 destinations = load_places()
 api_key, model = get_settings()
@@ -182,17 +217,12 @@ if "itinerary" in st.session_state:
         st.warning(w)
     show_itinerary(st.session_state.itinerary, dest)
 
-# --- Temporary: connection check from Step 1 (removed in Step 4) ---
-with st.expander("Developer: test Gemini connection"):
-    if st.button("Test Gemini"):
-        # Same retry + fallback path as the planner, so this tests what users get.
-        with st.spinner("Contacting Gemini…"):
-            try:
-                resp, used = planner.call_gemini(
-                    get_client(api_key), model, "Reply with exactly: Travello connected.",
-                    json_mode=False,
-                )
-                note = "" if used == model else f" (fallback — {model} was busy)"
-                st.success(f"{used}: {(resp.text or '').strip()}{note}")
-            except planner.PlannerError as e:
-                st.error(str(e))
+    # --- 3. Download ---
+    st.download_button(
+        "Download itinerary",
+        data=itinerary_markdown(st.session_state.itinerary, dest, st.session_state.brief),
+        file_name=f"travello-{st.session_state.dest_key}-{st.session_state.brief['days']}-days.md",
+        mime="text/markdown",
+        icon=":material/download:",
+        width="stretch",
+    )
