@@ -1,0 +1,12 @@
+# Travello look — matches the prototype's teal + white palette.
+# Only [theme] is set, so the app stays in this one light look.
+[theme]
+base = "light"
+primaryColor = "#137A72"            # prototype's teal (buttons, sliders, links)
+linkColor = "#137A72"
+backgroundColor = "#F6FAF9"         # off-white page
+secondaryBackgroundColor = "#E6F2F0" # pale mint for inputs and chips
+textColor = "#12303A"               # dark navy, like the prototype's phone frame
+borderColor = "#D3E4E1"
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+baseRadius = "large"

@@ -3,6 +3,7 @@
 Workflow: trip brief form -> Gemini itinerary -> day cards.
 (Chat edits and download come in later build steps.)
 """
+import base64
 import json
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import streamlit as st
 import planner
 
 DATA_PATH = Path(__file__).parent / "data" / "places.json"
+HERO_PATH = Path(__file__).parent / "assets" / "hero.jpg"  # optional beach photo
 DEFAULT_MODEL = "gemini-3.8-flash"
 
 INTERESTS = ["Sightseeing", "Culture", "Nature", "Adventure", "Relaxation", "Shopping"]
@@ -42,6 +44,45 @@ def get_settings():
         return st.secrets.get("GEMINI_API_KEY"), st.secrets.get("GEMINI_MODEL", DEFAULT_MODEL)
     except Exception:  # no secrets.toml at all
         return None, DEFAULT_MODEL
+
+
+@st.cache_data
+def hero_background():
+    """CSS background for the banner: the beach photo if assets/hero.jpg exists,
+    otherwise a sky-to-sea gradient so the page still looks right without it."""
+    if HERO_PATH.exists():
+        img = base64.b64encode(HERO_PATH.read_bytes()).decode()
+        return f"url('data:image/jpeg;base64,{img}') center 60% / cover"
+    return "linear-gradient(180deg, #4A8FC9 0%, #7DB8D8 45%, #2E8C83 80%, #137A72 100%)"
+
+
+def show_hero():
+    """Welcome banner styled like the prototype's opening screen."""
+    st.html(f"""
+    <div style="position:relative; border-radius:24px; overflow:hidden;
+                padding:28px 28px 32px; min-height:300px;
+                background:{hero_background()};
+                display:flex; flex-direction:column; justify-content:space-between;
+                font-family:'Inter',sans-serif; color:#fff;">
+      <div style="position:absolute; inset:0;
+                  background:linear-gradient(180deg, rgba(10,40,50,.10) 0%, rgba(10,40,50,.65) 100%);"></div>
+      <div style="position:relative; display:flex; align-items:center; gap:8px;
+                  font-size:28px; font-weight:800; letter-spacing:-.5px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+          <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/>
+        </svg>
+        travello
+      </div>
+      <div style="position:relative; margin-top:90px;">
+        <div style="font-size:12px; font-weight:700; letter-spacing:2px; color:#9BE6D8;">
+          A LITTLE MORE OUT THERE</div>
+        <div style="font-size:40px; font-weight:800; line-height:1.1; margin:6px 0 10px;">
+          Your next story starts here.</div>
+        <div style="font-size:16px; opacity:.92; max-width:460px;">
+          Tell us about your trip and get a day-by-day plan built from curated places.</div>
+      </div>
+    </div>
+    """)
 
 
 def lookup(dest):
@@ -86,8 +127,7 @@ def show_itinerary(itin, dest):
 destinations = load_places()
 api_key, model = get_settings()
 
-st.title("🧭 Travello")
-st.caption("Tell us about your trip and get a day-by-day plan built from curated places.")
+show_hero()
 
 if not api_key:
     st.error("No GEMINI_API_KEY found in secrets. Add it to run the planner.")
@@ -107,7 +147,9 @@ with st.form("trip_form"):
     pace = col2.radio("Pace", list(planner.PACE_ITEMS), index=1, horizontal=True)
     interests = st.multiselect("Interests", INTERESTS)
     food = st.multiselect("Food preferences", FOOD_PREFS)
-    submitted = st.form_submit_button("Generate itinerary", type="primary")
+    submitted = st.form_submit_button(
+        "Generate itinerary", type="primary", icon=":material/arrow_forward:", width="stretch"
+    )
 
 # --- 2. Generate itinerary ---
 if submitted:
