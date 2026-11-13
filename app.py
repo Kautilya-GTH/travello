@@ -132,7 +132,7 @@ def nav_bar():
     row = st.container(horizontal=True, vertical_alignment="center", gap="small")
     for label, views, action in (
         ("Explore", ("home",), go_home),
-        ("Plan", ("intake", "plan"), start_intake),
+        ("Plan", ("intake", "recs", "plan"), start_intake),
         ("Community", ("community", "traveller"), go_community),
         ("My trips", ("trips",), lambda: go("trips")),
         ("Profile", ("profile",), lambda: go("profile")),
@@ -437,8 +437,8 @@ def question(step, a):
     name = places[a["destination"]]["name"] if a.get("destination") else "there"
     return {
         "travel_type": "Is this a domestic or an international trip?",
-        "destination": "Lovely! Where in India would you like to go?"
-        if a.get("travel_type") == "Domestic" else "Where abroad would you like to go?",
+        "destination": "Lovely! Where in India would you like to go? Search below."
+        if a.get("travel_type") == "Domestic" else "Where abroad would you like to go? Search below.",
         "days": f"{name} — great choice. How many days do you have?",
         "budget": "What kind of budget are you thinking?",
         "companions": "Who are you travelling with?",
@@ -448,7 +448,7 @@ def question(step, a):
         "done": (
             f"All set: {a.get('days')} days in {name}, {str(a.get('budget', '')).lower()} budget, "
             f"{str(a.get('companions', '')).lower()}, {str(a.get('pace', '')).lower()} pace. "
-            "Tap below and I'll plan your days."
+            "Tap below and I'll show places to see, eat and stay — you choose what goes in."
         ),
     }[step]
 
@@ -554,7 +554,7 @@ def show_intake(destinations, api_key, model):
         answer_typed(typed)
 
     st.button("Back to Explore", icon=":material/arrow_back:", type="tertiary", on_click=go_home)
-    eyebrow("01 / 02 · TRIP DETAILS")
+    eyebrow("01 / 03 · TRIP DETAILS")
     st.title(f'Let\'s make a little room for :color[*somewhere.*]{{foreground="{TEAL}"}}')
     st.caption(
         "Chat with your Travello assistant. It'll ask a few questions, then plan places to see, "
@@ -593,9 +593,8 @@ def show_intake(destinations, api_key, model):
             st.button("Done", type="primary", disabled=not picked, on_click=answer,
                       args=(", ".join(picked), picked))
         elif step == "done":
-            if st.button("Plan my days", type="primary", icon=":material/arrow_forward:",
-                         width="stretch"):
-                generate(destinations, api_key, model)
+            st.button("See suggestions", type="primary", icon=":material/arrow_forward:",
+                      width="stretch", on_click=open_recs)
         else:
             row = st.container(horizontal=True)
             for label, value in step_options(step, ss.answers):
@@ -604,9 +603,118 @@ def show_intake(destinations, api_key, model):
             st.warning(ss.intake_error)
 
 
+# ---------------- Suggestions: choose what goes in ----------------
+def open_recs():
+    ss = st.session_state
+    ss.picks = {}        # place id -> "in" or "out"
+    ss.stay_pick = None  # one stay id, or None to let the planner choose
+    ss.view = "recs"
+
+
+def set_pick(pid, state):
+    picks = st.session_state.picks
+    picks[pid] = None if picks.get(pid) == state else state  # tap again to undo
+
+
+def set_stay(sid):
+    ss = st.session_state
+    ss.stay_pick = None if ss.stay_pick == sid else sid
+
+
+def ranked(items, interests):
+    """Places whose tags match the traveller's interests come first."""
+    wanted = {i.lower() for i in interests}
+    return sorted(items, key=lambda p: -len(wanted & {t.lower() for t in p.get("tags", [])}))
+
+
+def maps_link(name, dest):
+    from urllib.parse import quote_plus
+    return f"https://www.google.com/maps/search/?api=1&query={quote_plus(name + ', ' + dest['name'])}"
+
+
+def place_card(p, dest, interests):
+    state = st.session_state.picks.get(p["id"])
+    with st.container(border=True):
+        st.markdown(f"**{p['name']}**" + (" &nbsp; :green-badge[Included]" if state == "in" else "")
+                    + (" &nbsp; :gray-badge[Skipped]" if state == "out" else ""))
+        st.caption(p["note"])
+        meta = [m for m in (p.get("dur"), p.get("price")) if m]
+        matches = [t for t in p.get("tags", []) if t.lower() in {i.lower() for i in interests}]
+        st.markdown(
+            f":small[{' · '.join(meta + p.get('tags', [])[:3])}]"
+            + (f" :small[:color[· fits your interests]{{foreground=\"{TEAL}\"}}]" if matches else "")
+        )
+        row = st.container(horizontal=True, vertical_alignment="center")
+        row.button("Included" if state == "in" else "Include", key=f"in_{p['id']}",
+                   type="primary" if state == "in" else "secondary",
+                   icon=":material/check:" if state == "in" else ":material/add:",
+                   on_click=set_pick, args=(p["id"], "in"))
+        row.button("Skipped" if state == "out" else "Skip", key=f"out_{p['id']}", type="tertiary",
+                   on_click=set_pick, args=(p["id"], "out"))
+        row.markdown(f":small[[:material/location_on: View on Google Maps]({maps_link(p['name'], dest)})]")
+
+
+def show_recs(destinations, api_key, model):
+    ss = st.session_state
+    a = ss.answers
+    dest = destinations[a["destination"]]
+    interests = a.get("interests") or []
+
+    top = st.container(horizontal=True, vertical_alignment="center")
+    top.button("Edit trip details", icon=":material/arrow_back:", type="tertiary",
+               on_click=start_intake, args=(a["destination"],))
+    top.caption("02 / 03 · SUGGESTIONS")
+    eyebrow(f"PICKED FOR {dest['name'].upper()} · {a['budget'].upper()} · {a['companions'].upper()}")
+    st.title(f'Choose what :color[*goes in.*]{{foreground="{TEAL}"}}')
+    st.caption(
+        "Suggestions are a starting point — include your favourites and skip anything you don't "
+        "want. We'll fill the remaining time with other places and free time. Prices are rough "
+        "guides, not live rates; check opening hours and stay terms before you book."
+    )
+
+    tab_names = ["Sightseeing", "Cafés & food", "Where to stay"]
+    section = st.segmented_control("Section", tab_names, default=tab_names[0], key="recs_section",
+                                   required=True, label_visibility="collapsed", width="stretch")
+    if section == "Sightseeing":
+        st.markdown(":material/location_on: **Sightseeing & places** · :small[include or skip each]")
+        for p in ranked(dest["sights"] + dest["extras"], interests):
+            place_card(p, dest, interests)
+    elif section == "Cafés & food":
+        st.markdown(":material/restaurant: **Cafés & food** · :small[include or skip each]")
+        for p in ranked(dest["food"], interests):
+            place_card(p, dest, interests)
+    else:
+        tier = planner.BUDGET_TIER[a["budget"]]
+        st.markdown(":material/hotel: **Where to stay** · :small[pick one, or leave it to us]")
+        # Stays in the chosen budget tier first.
+        for s in sorted(dest["stays"], key=lambda s: s["tier"] != tier):
+            chosen = ss.stay_pick == s["id"]
+            with st.container(border=True):
+                st.markdown(f"**{s['name']}**" + (" &nbsp; :green-badge[Your stay]" if chosen else "")
+                            + (" &nbsp; :blue-badge[Fits your budget]" if s["tier"] == tier else ""))
+                st.caption(f"{s['type']} · around ₹{s['price']:,}/night · ⭐ {s['rating']} · {s['note']}")
+                row = st.container(horizontal=True, vertical_alignment="center")
+                row.button("Chosen" if chosen else "Choose this stay", key=f"stay_{s['id']}",
+                           type="primary" if chosen else "secondary",
+                           icon=":material/check:" if chosen else ":material/hotel:",
+                           on_click=set_stay, args=(s["id"],))
+                row.markdown(f":small[[:material/location_on: View on Google Maps]({maps_link(s['name'], dest)})]")
+        st.caption("Sample stays · not verified listings or bookings.")
+
+    n_in = sum(1 for v in ss.picks.values() if v == "in")
+    n_out = sum(1 for v in ss.picks.values() if v == "out")
+    st.divider()
+    st.caption(f"{n_in} place{'' if n_in == 1 else 's'} included · {n_out} skipped" + (" · 1 stay" if ss.stay_pick else "")
+               + ("" if n_in else " — no must-sees yet, we'll choose for you"))
+    if st.button(f"Build my {a['days']}-day plan", type="primary", icon=":material/arrow_forward:",
+                 width="stretch"):
+        generate(destinations, api_key, model)
+
+
 def generate(destinations, api_key, model):
     ss = st.session_state
     a = ss.answers
+    picks = ss.get("picks", {})
     brief = {
         "days": a["days"],
         "budget": a["budget"],
@@ -615,6 +723,9 @@ def generate(destinations, api_key, model):
         "interests": a.get("interests") or [],
         "food": [],
         "must_visit": a.get("must_visit", ""),
+        "include_ids": [pid for pid, v in picks.items() if v == "in"],
+        "skip_ids": [pid for pid, v in picks.items() if v == "out"],
+        "stay_id": ss.get("stay_pick"),
     }
     with st.spinner(f"Finding places to see, eat and stay in {destinations[a['destination']]['name']}…"):
         try:
@@ -718,7 +829,7 @@ def show_plan(destinations, api_key, model):
     top = st.container(horizontal=True, vertical_alignment="center")
     top.button("Edit trip details", icon=":material/arrow_back:", type="tertiary",
                on_click=start_intake, args=(ss.dest_key,))
-    top.caption("02 / 02 · DRAFT — download it to keep a copy")
+    top.caption("03 / 03 · YOUR PLAN")
 
     eyebrow(f"{dest['country'].upper()} / {len(itin['days'])} DAYS / {ss.brief['pace'].upper()} PACE")
     st.title(f'{dest["name"]}, :color[*your way.*]{{foreground="{TEAL}"}}')
@@ -789,6 +900,8 @@ if ss.view == "plan" and "itinerary" in ss:
     show_plan(destinations, api_key, model)
 elif ss.view == "intake" and "intake_step" in ss:
     show_intake(destinations, api_key, model)
+elif ss.view == "recs" and "answers" in ss:
+    show_recs(destinations, api_key, model)
 elif ss.view == "community":
     show_community(destinations)
 elif ss.view == "traveller":

@@ -100,11 +100,21 @@ def _brief_text(brief, editing=False):
         if must
         else "- Must-visit wishes: none"
     )
+    # Choices from the "Choose what goes in" step (ids from places.json).
+    picks = []
+    if brief.get("include_ids"):
+        picks.append(f"- MUST include these ids: {', '.join(brief['include_ids'])} "
+                     "(spread them sensibly; if they don't all fit, keep as many as the pace allows)")
+    if brief.get("skip_ids"):
+        picks.append(f"- NEVER use these ids (the traveller skipped them): {', '.join(brief['skip_ids'])}")
+    if brief.get("stay_id"):
+        picks.append(f"- Use this stay id (the traveller chose it): {brief['stay_id']}")
+    picks_text = ("\n" + "\n".join(picks)) if picks else ""
     return f"""TRAVELLER BRIEF
 - Days: {days}
 - Budget: {brief['budget']} -> recommend a tier {tier} stay
 {stay_line}
-{must_line}
+{must_line}{picks_text}
 - Travelling as: {brief['companions']}
 - Pace: {brief['pace']} -> {PACE_ITEMS[brief['pace']]} items per day in total, including meals
 - Interests: {', '.join(brief['interests']) or 'no preference'} (prefer places with these tags)
@@ -171,13 +181,15 @@ def _ask_gemini(client, model, prompt):
     return data
 
 
-def validate(data, dest, num_days):
+def validate(data, dest, num_days, exclude=()):
     """Keep only ids that exist in places.json. Returns (itinerary, warnings).
 
     This is the guard against invented places: anything Gemini makes up is
     dropped here and reported, so the UI only ever shows curated entries.
+    Ids in `exclude` (places the traveller skipped) are removed too.
     """
     activity_ids = {p["id"] for cat in ("sights", "food", "extras") for p in dest[cat]}
+    activity_ids -= set(exclude)
     stay_ids = {s["id"] for s in dest["stays"]}
     warnings = []
 
@@ -191,6 +203,8 @@ def validate(data, dest, num_days):
                 pid = item.get("id") if isinstance(item, dict) else None
                 if pid in activity_ids:
                     items.append({"id": pid, "note": str(item.get("note", ""))})
+                elif pid in exclude:
+                    warnings.append(f"Day {i} {slot}: removed '{pid}' because you skipped it.")
                 else:
                     warnings.append(f"Day {i} {slot}: dropped unknown place '{pid}'.")
             day[slot] = items
@@ -214,7 +228,7 @@ def generate_itinerary(client, model, brief, dest):
     """Step 2 of the workflow: brief + curated places -> validated itinerary."""
     prompt = _rules(dest) + "\n\n" + _brief_text(brief)
     data = _ask_gemini(client, model, prompt)
-    return validate(data, dest, brief["days"])
+    return validate(data, dest, brief["days"], exclude=brief.get("skip_ids", ()))
 
 
 def edit_itinerary(client, model, brief, dest, itinerary, request):
@@ -237,5 +251,5 @@ def edit_itinerary(client, model, brief, dest, itinerary, request):
     )
     data = _ask_gemini(client, model, prompt)
     num_days = max(2, min(10, len(data["days"])))  # the request may change the trip length
-    itinerary, warnings = validate(data, dest, num_days)
+    itinerary, warnings = validate(data, dest, num_days)  # an edit may bring back a skipped place on request
     return itinerary, warnings, str(data.get("changes", "")).strip()
