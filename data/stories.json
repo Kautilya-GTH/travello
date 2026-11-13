@@ -1,0 +1,74 @@
+{
+  "_note": "Sample community stories (fictional travellers). Every id must exist in places.json; the app validates them on load.",
+  "stories": [
+    {
+      "key": "kyoto-5",
+      "destination": "kyoto",
+      "author": "Aarav Mehta",
+      "handle": "@aarav.wanders",
+      "home": "Pune, India",
+      "title": "Kyoto in 5 days: temples, tea & quiet lanes",
+      "summary": "Early starts to beat the crowds, temple food, and slow evenings in Gion.",
+      "likes": 342,
+      "open_to_join": false,
+      "brief": {"budget": "Mid-range", "companions": "Solo", "pace": "Balanced"},
+      "itinerary": {
+        "summary": "Five unhurried days: shrines at dawn, temple lunches and lantern-lit evenings.",
+        "stay": {"id": "machiya", "note": "Walkable to Gion and Higashiyama."},
+        "days": [
+          {"day": 1, "title": "Gates and lanes", "morning": [{"id": "fushimi", "note": "Go before 8 am for empty gates."}], "afternoon": [{"id": "kiyomizu", "note": ""}, {"id": "arabica", "note": ""}], "evening": [{"id": "gion", "note": ""}]},
+          {"day": 2, "title": "Bamboo and temple food", "morning": [{"id": "arashiyama", "note": "Arrive early, it fills fast."}], "afternoon": [{"id": "shigetsu", "note": ""}], "evening": [{"id": "kamo", "note": ""}]},
+          {"day": 3, "title": "Gold and quiet paths", "morning": [{"id": "kinkaku", "note": ""}], "afternoon": [{"id": "philosopher", "note": ""}], "evening": [{"id": "pontocho", "note": ""}]},
+          {"day": 4, "title": "Deer in Nara", "morning": [{"id": "nara", "note": "Full-day trip by train."}], "afternoon": [], "evening": [{"id": "owariya", "note": ""}]},
+          {"day": 5, "title": "Markets and tea", "morning": [{"id": "nishiki", "note": ""}], "afternoon": [{"id": "teaceremony", "note": ""}], "evening": [{"id": "teramachi", "note": ""}]}
+        ]
+      }
+    },
+    {
+      "key": "bali-7",
+      "destination": "bali",
+      "author": "Meera Iyer",
+      "handle": "@meera.outdoors",
+      "home": "Bengaluru, India",
+      "title": "Bali slow-travel week: Ubud to Uluwatu",
+      "summary": "Sunrise on Batur, a cooking class, rice terraces and three lazy days on the cliffs.",
+      "likes": 932,
+      "open_to_join": true,
+      "brief": {"budget": "Comfort", "companions": "Friends", "pace": "Slow"},
+      "itinerary": {
+        "summary": "Four days around Ubud, then the cliffs of Uluwatu at an easy pace.",
+        "stay": {"id": "junglevilla", "note": "Quiet base in the trees near Ubud."},
+        "days": [
+          {"day": 1, "title": "Settle into Ubud", "morning": [{"id": "campuhan", "note": ""}], "afternoon": [{"id": "monkeyforest", "note": ""}], "evening": [{"id": "clear", "note": ""}]},
+          {"day": 2, "title": "Sunrise on Batur", "morning": [{"id": "batur", "note": "3 am pickup, worth it."}], "afternoon": [{"id": "spa", "note": ""}], "evening": [{"id": "ibuoka", "note": ""}]},
+          {"day": 3, "title": "Terraces and cooking", "morning": [{"id": "tegallalang", "note": ""}], "afternoon": [{"id": "cooking", "note": ""}], "evening": [{"id": "zest", "note": ""}]},
+          {"day": 4, "title": "Water temple", "morning": [{"id": "tirtaempul", "note": ""}], "afternoon": [{"id": "artmarket", "note": ""}], "evening": [{"id": "revolver", "note": ""}]},
+          {"day": 5, "title": "To the cliffs", "morning": [], "afternoon": [{"id": "singlefin", "note": ""}], "evening": [{"id": "uluwatu", "note": "Kecak dance at sunset."}]},
+          {"day": 6, "title": "Island day", "morning": [{"id": "penida", "note": ""}], "afternoon": [], "evening": [{"id": "echo", "note": ""}]},
+          {"day": 7, "title": "One last long lunch", "morning": [], "afternoon": [{"id": "locavore", "note": ""}], "evening": []}
+        ]
+      }
+    },
+    {
+      "key": "goa-3",
+      "destination": "goa",
+      "author": "Rohan Das",
+      "handle": "@rohan.slowroads",
+      "home": "Kolkata, India",
+      "title": "A long weekend in the quieter Goa",
+      "summary": "Latin-quarter lanes, a ferry to Divar and lazy north-coast mornings.",
+      "likes": 128,
+      "open_to_join": false,
+      "brief": {"budget": "Budget", "companions": "Couple", "pace": "Slow"},
+      "itinerary": {
+        "summary": "Three slow days away from the party beaches.",
+        "stay": {"id": "siolimstudio", "note": "Riverside and calm, close to Morjim."},
+        "days": [
+          {"day": 1, "title": "Panjim on foot", "morning": [{"id": "fontainhas", "note": ""}], "afternoon": [{"id": "bodega", "note": ""}], "evening": [{"id": "riverside", "note": ""}]},
+          {"day": 2, "title": "Island and sunset", "morning": [{"id": "divar", "note": ""}], "afternoon": [{"id": "vinayak", "note": ""}], "evening": [{"id": "vagator", "note": ""}]},
+          {"day": 3, "title": "North-coast morning", "morning": [{"id": "morjim", "note": ""}], "afternoon": [{"id": "thalassa", "note": ""}], "evening": []}
+        ]
+      }
+    }
+  ]
+}

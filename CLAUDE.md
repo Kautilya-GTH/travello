@@ -18,7 +18,9 @@ building more than asked earns no extra marks, so do not add features beyond the
 ## The product
 Travello is an AI trip planner. The original prototype (a single HTML file) had 16 features
 including a community feed, profiles and "Make it Mine". For the MVP we build ONLY the
-AI Trip Planning flow. Everything else is a V2 roadmap item and must not be coded.
+AI Trip Planning flow, plus (team decision, 13 Nov) a read-only Community page of sample
+stories in `data/stories.json` with "Make it Mine" copying a story into the planner (no
+database, no logins; likes are per-session only). My trips, Profile and sign-in stay V2.
 
 ### MVP workflow (in order)
 1. **Trip brief form** — destination (Goa, Jaipur, Kyoto, Bali), number of days (2–10),

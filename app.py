@@ -69,6 +69,21 @@ def img_b64(name):
     return "data:image/jpeg;base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
 
 
+@st.cache_data
+def load_stories():
+    """Sample community stories. Their itineraries go through the same id
+    validation as Gemini's, so a typo in stories.json can't show a fake place."""
+    destinations = load_places()
+    with open(ROOT / "data" / "stories.json", encoding="utf-8") as f:
+        stories = json.load(f)["stories"]
+    for s in stories:
+        dest = destinations[s["destination"]]
+        s["itinerary"], s["warnings"] = planner.validate(
+            s["itinerary"], dest, len(s["itinerary"]["days"])
+        )
+    return stories
+
+
 def lookup(dest):
     """id -> place dict, across every category of one destination."""
     return {p["id"]: p for cat in ("sights", "food", "stays", "extras") for p in dest[cat]}
@@ -95,6 +110,23 @@ def photo_block(image, height, inner_html, radius=18):
 # ---------------- Navigation (button callbacks) ----------------
 def go_home():
     st.session_state.view = "home"
+
+
+def go_community():
+    st.session_state.view = "community"
+
+
+def nav_bar():
+    """Top navigation like the prototype header (Explore / Plan / Community)."""
+    view = st.session_state.view
+    row = st.container(horizontal=True, vertical_alignment="center")
+    row.image(str(ASSETS / "logo.png"), width=130)
+    row.space("stretch")
+    row.button("Explore", type="primary" if view == "home" else "tertiary", on_click=go_home)
+    row.button("Plan", type="primary" if view in ("intake", "plan") else "tertiary",
+               on_click=start_intake)
+    row.button("Community", type="primary" if view == "community" else "tertiary",
+               on_click=go_community)
 
 
 def start_intake(dest_key=None):
@@ -154,10 +186,89 @@ def show_home(destinations):
                 st.button(f"Plan {d['name']}", key=f"card_{key}", icon=":material/arrow_forward:",
                           width="stretch", on_click=start_intake, args=(key,))
 
+    st.space("medium")
+    eyebrow("FROM THE TRAVELLER'S JOURNAL")
+    head = st.container(horizontal=True, vertical_alignment="center")
+    head.header("Good trips are better shared.")
+    head.button("Meet the community", icon=":material/arrow_forward:", on_click=go_community)
+    for story in load_stories()[:2]:
+        story_card(story, destinations)
+
     st.divider()
     st.image(str(ASSETS / "logo.png"), width=110)
     st.caption("**PLAN LESS. EXPERIENCE MORE.** · Made for the journeys that stay with you.")
-    st.caption("Coming later: sign in, Community, My trips and Profile.")
+    st.caption("Coming later: My trips and Profile.")
+
+
+# ---------------- Community: sample traveller stories ----------------
+def toggle_like(key):
+    liked = st.session_state.setdefault("liked", set())
+    liked.symmetric_difference_update({key})
+
+
+def make_it_mine(story):
+    """Copy a story's itinerary into the planner, where chat edits can change it."""
+    ss = st.session_state
+    ss.itinerary = json.loads(json.dumps(story["itinerary"]))  # own copy; the original stays as it is
+    ss.warnings = []
+    ss.dest_key = story["destination"]
+    ss.brief = {**story["brief"], "days": len(story["itinerary"]["days"]),
+                "interests": [], "food": [], "must_visit": ""}
+    ss.source_label = f"{story['author']}'s shared itinerary"
+    ss.chat = [("assistant", "Your copy is ready. What would you like to change?")]
+    ss.view = "plan"
+
+
+def story_card(story, destinations):
+    d = destinations[story["destination"]]
+    days = len(story["itinerary"]["days"])
+    liked = story["key"] in st.session_state.get("liked", set())
+    with st.container(border=True):
+        photo_block(f"{story['destination']}.jpg", 170, f"""
+            <div style="font-size:12px; font-weight:700; letter-spacing:2px;">{d['name'].upper()}</div>
+            <div style="font-size:13px; opacity:.9;">{days} DAYS · {'OPEN TO JOIN' if story['open_to_join'] else 'PREVIOUS TRIP'}</div>
+        """, radius=14)
+        initials = "".join(w[0] for w in story["author"].split()[:2])
+        st.markdown(
+            f":color-badge[{initials}] **{story['author']}** :small[{story['handle']} · {story['home']}]"
+        )
+        st.subheader(story["title"])
+        st.write(story["summary"])
+        st.caption(f"{days} days · {d['country']} · :gray-badge[Sample story]")
+        row = st.container(horizontal=True, vertical_alignment="center")
+        row.button(
+            f"{story['likes'] + liked}", key=f"like_{story['key']}",
+            icon=":material/favorite:" if liked else ":material/favorite_border:",
+            type="tertiary", on_click=toggle_like, args=(story["key"],),
+        )
+        show = row.toggle("View itinerary", key=f"view_{story['key']}")
+        row.button("Make it Mine", key=f"mine_{story['key']}", type="primary",
+                   icon=":material/content_copy:", on_click=make_it_mine, args=(story,))
+        if show:
+            places = lookup(d)
+            for day in story["itinerary"]["days"]:
+                names = [places[i["id"]]["name"] for sl in planner.SLOTS for i in day[sl]]
+                st.markdown(f"**Day {day['day']}** · {day['title']}  \n:small[{' · '.join(names) or 'Free time'}]")
+            st.caption("Make it Mine opens your own copy in the planner. The original stays as it is.")
+
+
+def show_community(destinations):
+    eyebrow("THE GOOD PLACES ARE BETTER SHARED")
+    st.title(f'Travel lives here. :color[*Stories and journals.*]{{foreground="{TEAL}"}}')
+    st.caption("Real itineraries, little discoveries, and people who love to go.")
+    st.info(
+        "These are sample stories to show how shared trips look. Publishing, comments and "
+        "join requests need accounts, which come with My trips and Profile later.",
+        icon=":material/info:",
+    )
+    names = {k: destinations[k]["name"] for k in CARD_ORDER}
+    pick = st.pills("Filter traveller stories", list(names), format_func=names.get,
+                    key="story_filter")
+    stories = [s for s in load_stories() if not pick or s["destination"] == pick]
+    if not stories:
+        st.caption(f"No stories for {names[pick]} yet. Plan yours and it could be the first.")
+    for story in stories:
+        story_card(story, destinations)
 
 
 # ---------------- Intake: the assistant asks, the user taps or types ----------------
@@ -302,6 +413,7 @@ def generate(destinations, api_key, model):
     # Kept in session_state so later edits build on the latest version.
     ss.itinerary, ss.warnings, ss.brief, ss.dest_key = itin, warnings, brief, a["destination"]
     ss.chat = [("assistant", "Your plan is ready. What would you like to change?")]
+    ss.source_label = ""
     ss.view = "plan"
     st.rerun()
 
@@ -395,6 +507,8 @@ def show_plan(destinations, api_key, model):
 
     eyebrow(f"{dest['country'].upper()} / {len(itin['days'])} DAYS / {ss.brief['pace'].upper()} PACE")
     st.title(f'{dest["name"]}, :color[*your way.*]{{foreground="{TEAL}"}}')
+    if ss.get("source_label"):
+        st.caption(f"Your own copy, based on {ss.source_label}. Changes here never affect the original.")
     if itin["summary"]:
         st.write(itin["summary"])
 
@@ -445,7 +559,7 @@ api_key, model = get_settings()
 ss = st.session_state
 ss.setdefault("view", "home")
 
-st.image(str(ASSETS / "logo.png"), width=140)
+nav_bar()
 
 if not api_key:
     st.error("No GEMINI_API_KEY found in secrets. Add it to run the planner.")
@@ -455,5 +569,7 @@ if ss.view == "plan" and "itinerary" in ss:
     show_plan(destinations, api_key, model)
 elif ss.view == "intake" and "intake_step" in ss:
     show_intake(destinations, api_key, model)
+elif ss.view == "community":
+    show_community(destinations)
 else:
     show_home(destinations)
