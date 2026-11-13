@@ -5,10 +5,18 @@ Flow: build a prompt from the trip brief + curated places -> ask Gemini
 for JSON -> parse it safely -> keep only ids that exist in places.json.
 """
 import json
+import time
 
-from google.genai import types
+import streamlit as st
+from google.genai import errors, types
 
 SLOTS = ("morning", "afternoon", "evening")
+
+# Retry settings for when Gemini is overloaded (429 = rate limit, 503 = busy).
+MAX_ATTEMPTS = 3
+RETRY_WAIT_SECONDS = 2
+BUSY_CODES = (429, 503)
+TIMEOUT_CODE = 504  # model didn't answer within the client timeout (set in app.py)
 
 # Pace -> how many places/meals per day in total (all three slots together).
 PACE_ITEMS = {
@@ -81,16 +89,49 @@ def _brief_text(brief):
 - Food preferences: {', '.join(brief['food']) or 'no preference'} (prefer food places with these tags)"""
 
 
+def _call_with_retry(client, model, prompt):
+    """Call one model up to MAX_ATTEMPTS times, retrying only on 429/503 (busy).
+
+    Returns the response, or None if the model is busy or timed out.
+    A timeout (504) gives up on this model at once rather than waiting again.
+    Any other error (bad key, bad request...) is raised straight away.
+    """
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+        except errors.APIError as e:
+            if e.code == TIMEOUT_CODE:
+                return None
+            if e.code not in BUSY_CODES:
+                raise
+            if attempt < MAX_ATTEMPTS:
+                time.sleep(RETRY_WAIT_SECONDS * attempt)  # wait 2s, then 4s
+    return None
+
+
+def _fallback_model():
+    """Second model to try when the main one is busy (optional secret)."""
+    try:
+        return st.secrets.get("GEMINI_FALLBACK_MODEL")
+    except Exception:  # no secrets.toml at all
+        return None
+
+
 def _ask_gemini(client, model, prompt):
     """Call Gemini asking for JSON and return the parsed dict."""
     try:
-        resp = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
+        resp = _call_with_retry(client, model, prompt)
+        fallback = _fallback_model()
+        if resp is None and fallback and fallback != model:
+            resp = _call_with_retry(client, fallback, prompt)
     except Exception as e:
         raise PlannerError(f"Couldn't reach Gemini ({type(e).__name__}). Please try again.") from e
+    if resp is None:
+        raise PlannerError("Gemini is busy, please try again in a minute.")
 
     try:
         data = json.loads(resp.text or "")

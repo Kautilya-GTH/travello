@@ -29,8 +29,11 @@ def load_places():
 @st.cache_resource
 def get_client(api_key):
     from google import genai
+    from google.genai import types
 
-    return genai.Client(api_key=api_key)
+    # 30s timeout so a hung model fails fast (as a 504) and the planner can
+    # move on to the fallback model instead of freezing the page.
+    return genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30_000))
 
 
 def get_settings():
