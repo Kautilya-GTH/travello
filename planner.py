@@ -78,11 +78,24 @@ Return JSON only, in exactly this shape:
 }}"""
 
 
-def _brief_text(brief):
+def _brief_text(brief, editing=False):
     tier = BUDGET_TIER[brief["budget"]]
+    days = (
+        f"{brief['days']} (keep this number unless the change request asks for a "
+        "different number of days, between 2 and 10)"
+        if editing
+        else f"{brief['days']} (return exactly {brief['days']} day objects)"
+    )
+    stay_type = brief.get("stay_type", "No preference")
+    stay_line = (
+        f"- Stay type: prefer a {stay_type} if one exists in the right tier"
+        if stay_type != "No preference"
+        else "- Stay type: no preference"
+    )
     return f"""TRAVELLER BRIEF
-- Days: {brief['days']} (return exactly {brief['days']} day objects)
+- Days: {days}
 - Budget: {brief['budget']} -> recommend a tier {tier} stay
+{stay_line}
 - Travelling as: {brief['companions']}
 - Pace: {brief['pace']} -> {PACE_ITEMS[brief['pace']]} items per day in total, including meals
 - Interests: {', '.join(brief['interests']) or 'no preference'} (prefer places with these tags)
@@ -193,3 +206,27 @@ def generate_itinerary(client, model, brief, dest):
     prompt = _rules(dest) + "\n\n" + _brief_text(brief)
     data = _ask_gemini(client, model, prompt)
     return validate(data, dest, brief["days"])
+
+
+def edit_itinerary(client, model, brief, dest, itinerary, request):
+    """Step 3 of the workflow: current itinerary + the user's change -> updated itinerary.
+
+    Gemini returns the FULL updated plan (same JSON shape) plus a one-line
+    "changes" summary. The result goes through the same id validation as a
+    new plan. Returns (itinerary, warnings, changes).
+    """
+    prompt = (
+        _rules(dest)
+        + "\n\n" + _brief_text(brief, editing=True)
+        + "\n\nCURRENT ITINERARY (JSON)\n" + json.dumps(itinerary, ensure_ascii=False)
+        + f"\n\nCHANGE REQUEST FROM THE TRAVELLER\n{request}\n\n"
+        "Apply the change and return the FULL updated itinerary in the same JSON shape. "
+        "Keep everything the traveller did not ask to change. "
+        'Also add a top-level "changes" field: one short sentence saying what you changed. '
+        "If the request can't be done with the listed places, keep the plan and explain "
+        'why in "changes".'
+    )
+    data = _ask_gemini(client, model, prompt)
+    num_days = max(2, min(10, len(data["days"])))  # the request may change the trip length
+    itinerary, warnings = validate(data, dest, num_days)
+    return itinerary, warnings, str(data.get("changes", "")).strip()

@@ -63,7 +63,7 @@ README.md
 ## Build steps
 - [x] Step 1: skeleton app, places.json, deploy test with "Test Gemini" button
 - [x] Step 2: trip brief form + itinerary generation (planner.py) + day-card display
-- [ ] Step 3: chat-based edits
+- [x] Step 3: chat-based edits
 - [x] Step 4: download, error handling, light polish; remove the "Test Gemini" button
 - [ ] Step 5: test with 2–3 real users, fix issues, push, confirm the live link works
 
