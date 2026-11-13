@@ -135,6 +135,10 @@ def _call_with_retry(client, model, prompt, json_mode):
         except errors.APIError as e:
             if e.code == TIMEOUT_CODE:
                 return None
+            # Quota used up (429 RESOURCE_EXHAUSTED mentioning quota): retrying won't
+            # help, so move to the fallback model straight away.
+            if e.code == 429 and "quota" in str(e.message or "").lower():
+                return None
             if e.code not in BUSY_CODES:
                 raise
             if attempt < MAX_ATTEMPTS:
