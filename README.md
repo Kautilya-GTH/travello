@@ -112,6 +112,46 @@ Evidence from our customer discovery (10 user interviews):
   Maps. Stays are labelled as samples, to reduce inaccurate recommendations.
 - Community stories and traveller profiles are fictional samples and are labelled as such.
 
+AI use disclosure
+We used the following AI tools in this project:
+Claude (claude.ai chat, Anthropic)
+- Reviewed the course guidelines and our prototype and suggested a deployment plan.
+- Wrote the first skeleton version of the app and extracted the destination data from our
+  prototype into `data/places.json`.
+- Wrote the project brief files for the coding assistant (`CLAUDE.md`, `REDESIGN.md`) and
+  the theme file.
+- Helped with setup and troubleshooting (Python, Git, GitHub, Streamlit Cloud, Gemini API key).
+- Reviewed the code for compliance with the project rules.
+- Assembled this README from our PRD, wrote the "How it works" section, and drafted this
+  disclosure, which we reviewed and edited.
+
+Claude Code (in VS Code, Anthropic)
+- Wrote and debugged most of `app.py` and `planner.py`: the trip wizard, Gemini prompts,
+  JSON parsing, place-id validation, chat edits, download, retry/fallback handling and the
+  visual design. A dated log is in `AI_ASSIST_LOG.md`.
+
+Google Gemini API
+- Part of the product itself: it generates and edits itineraries for users.
+
+Prototype, PRD and images
+- We created the Prototype first in the Lovable app and provided it to users for Feedback.
+- We wrote the PRD after accumulating all the data and put it in the Word Doc.
+- Logo was created using Chatgpt and Images were downloaded from Google Photos.
+
+What the team did
+- The team disctributed the Prototype within friends circle for feedback.
+
+We reviewed all AI-generated code and content, tested the app ourselves, and take
+responsibility for everything submitted.
+
+Team — Group 5
+Name	Roll no.
+Kumar Kautilya	2560034
+Nisha Kumari	2560041
+Hrishabh Singh	2560030
+Sital Suman Rath	2560065
+Prayash	2560047
+
 ## Run locally
 
 ```bash
@@ -120,3 +160,5 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # then add your key
 streamlit run app.py
+
+
