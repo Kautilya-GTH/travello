@@ -1,9 +1,9 @@
 """Travello — AI trip planner (MVP).
 
 Workflow (one page, three views kept in st.session_state.view):
-  home   -> hero + four destination cards
-  wizard -> 3-step trip brief (destination & days, budget & company, travel style)
-  plan   -> Gemini itinerary (summary card + day cards), edit by chat, download
+  home    -> hero + four destination cards
+  intake  -> the Travello assistant asks the trip brief one question at a time
+  plan    -> Gemini itinerary (day cards), edit by chat, download
 """
 import base64
 import json
@@ -17,8 +17,9 @@ ROOT = Path(__file__).parent
 DATA_PATH = ROOT / "data" / "places.json"
 ASSETS = ROOT / "assets"
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
+TEAL = "#0E8585"
 
-# Card text for the home screen (same copy as the prototype).
+# Card text for the home screen (same copy as the team's prototype).
 TAGLINES = {
     "kyoto": "Culture & calm",
     "bali": "A slower escape",
@@ -27,11 +28,12 @@ TAGLINES = {
 }
 CARD_ORDER = ["kyoto", "bali", "goa", "jaipur"]
 
-COMPANIONS = ["Solo", "Couple", "Friends", "Family", "Group"]
-INTERESTS = ["Sightseeing", "Nature", "Culture", "Shopping", "Adventure", "Relaxation"]
-FOOD_PREFS = ["Vegetarian", "Local food", "Street food", "Cafés", "Fine dining"]
-STAY_TYPES = ["No preference", "Hotel", "Boutique", "Airbnb"]
-STEP_NAMES = ["Destination & dates", "Budget & company", "Travel preferences"]
+# The assistant's questions, in order. Each answer fills one field of the brief.
+STEPS = ["travel_type", "destination", "days", "budget", "companions", "pace",
+         "interests", "must_visit", "done"]
+DAY_OPTIONS = [2, 3, 4, 5, 7, 10]
+COMPANIONS = ["Solo", "Couple", "Friends", "Family"]
+INTERESTS = ["Culture", "Nature", "Food", "Relaxation", "Shopping", "Adventure"]
 
 st.set_page_config(page_title="Travello", page_icon=str(ASSETS / "pin.png"), layout="centered")
 
@@ -63,7 +65,7 @@ def get_settings():
 
 @st.cache_data
 def img_b64(name):
-    """An image from assets/ as a data URI, for the HTML banner and cards."""
+    """An image from assets/ as a data URI, for the HTML photo blocks."""
     return "data:image/jpeg;base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
 
 
@@ -72,184 +74,246 @@ def lookup(dest):
     return {p["id"]: p for cat in ("sights", "food", "stays", "extras") for p in dest[cat]}
 
 
-# ---------------- Navigation helpers (button callbacks) ----------------
-def go(view, step=1):
-    st.session_state.view = view
-    st.session_state.step = step
+def eyebrow(text):
+    """Small teal capitals above a heading, like the prototype."""
+    st.markdown(f':small[**:color[{text}]{{foreground="{TEAL}"}}**]')
 
 
-def start_plan(dest_key=None):
-    if dest_key:
-        st.session_state.w_dest = dest_key
-    go("wizard", 1)
-
-
-# ---------------- Home ----------------
-def photo_block(image, height, inner_html, radius=22):
-    """Photo with a dark fade and white text on top (like the prototype cards)."""
+def photo_block(image, height, inner_html, radius=18):
+    """Photo with a dark fade and light text on top (like the prototype cards)."""
     st.html(f"""
     <div style="position:relative; height:{height}px; border-radius:{radius}px; overflow:hidden;
-                background:url('{img_b64(image)}') center / cover; font-family:'Inter',sans-serif;
-                color:#fff;">
+                background:url('{img_b64(image)}') center / cover;
+                font-family:'Trebuchet MS','Segoe UI',sans-serif; color:#FFF7ED;">
       <div style="position:absolute; inset:0;
-                  background:linear-gradient(180deg, rgba(10,30,40,0) 35%, rgba(10,30,40,.75) 100%);"></div>
+                  background:linear-gradient(180deg, rgba(16,42,67,0) 35%, rgba(16,42,67,.78) 100%);"></div>
       <div style="position:absolute; left:20px; right:20px; bottom:18px;">{inner_html}</div>
     </div>
     """)
 
 
+# ---------------- Navigation (button callbacks) ----------------
+def go_home():
+    st.session_state.view = "home"
+
+
+def start_intake(dest_key=None):
+    """Open the assistant. A destination card skips the first two questions."""
+    ss = st.session_state
+    ss.view = "intake"
+    ss.answers = {}
+    ss.intake_error = ""
+    ss.w_interests = []
+    hello = "Hi! I'm your Travello assistant."
+    if dest_key:
+        d = load_places()[dest_key]
+        ss.answers = {"destination": dest_key,
+                      "travel_type": "Domestic" if d["domestic"] else "International"}
+        ss.intake_step = "days"
+        ss.intake_msgs = [("assistant", f"{hello} {d['name']} it is. " + question("days", ss.answers))]
+    else:
+        ss.intake_step = "travel_type"
+        ss.intake_msgs = [("assistant", f"{hello} " + question("travel_type", ss.answers))]
+
+
+# ---------------- Home ----------------
 def show_home(destinations):
-    photo_block("hero.jpg", 320, """
-        <div style="font-size:12px; font-weight:700; letter-spacing:2px;">YOUR NEXT CHAPTER</div>
-        <div style="font-size:40px; font-weight:800; line-height:1.08; margin:6px 0 8px;">
-          Away from<br>the everyday.</div>
-        <div style="font-size:16px; opacity:.92;">A good trip starts with a little inspiration.</div>
-    """)
-    st.button(
-        "Plan my trip", type="primary", icon=":material/auto_awesome:", width="stretch",
-        on_click=start_plan,
+    eyebrow("YOUR NEXT CHAPTER")
+    st.title(f'Plan less.  \n:color[*Experience more.*]{{foreground="{TEAL}"}}')
+    st.write(
+        "Tell us about your trip and get sightseeing, food and stay ideas, arranged day by "
+        "day — then shape it your way."
     )
+    st.button("Start planning your trip with AI", type="primary", icon=":material/auto_awesome:",
+              width="stretch", on_click=start_intake)
+    st.caption("AI helps. **You decide.**")
 
-    row = st.container(horizontal=True, vertical_alignment="bottom")
-    row.subheader("Where will you go?")
-    row.caption("Four places to begin")
+    photo_block("bali.jpg", 260, """
+        <div style="font-size:12px; font-weight:700; letter-spacing:2px;">UBUD, BALI
+          <span style="opacity:.75; font-weight:400;">&nbsp; 08°30′S · 115°15′E</span></div>
+        <div style="font-size:28px; font-weight:700; line-height:1.15; margin-top:6px;">
+          Slow mornings.</div>
+        <div style="font-size:15px; opacity:.92;">There's room for those, too.</div>
+    """, radius=22)
 
-    for pair in (CARD_ORDER[:2], CARD_ORDER[2:]):
+    st.space("medium")
+    eyebrow("A GOOD PLACE TO BEGIN")
+    st.header("Where will you go?")
+    st.caption("Four places to begin. Plenty of room to make them your own.")
+
+    for row, pair in enumerate((CARD_ORDER[:2], CARD_ORDER[2:])):
         cols = st.columns(2)
-        for col, key in zip(cols, pair):
+        for i, (col, key) in enumerate(zip(cols, pair)):
             d = destinations[key]
             with col:
-                photo_block(f"{key}.jpg", 200, f"""
-                    <div style="font-size:24px; font-weight:800;">{d['name']}</div>
-                    <div style="font-size:13px; opacity:.95;">{d['country']} · {TAGLINES[key]}</div>
-                """, radius=18)
-                st.button(
-                    f"Plan {d['name']}", key=f"card_{key}", icon=":material/arrow_forward:",
-                    width="stretch", on_click=start_plan, args=(key,),
-                )
+                photo_block(f"{key}.jpg", 220, f"""
+                    <div style="font-size:12px; opacity:.85;">0{row * 2 + i + 1} / 04</div>
+                    <div style="font-size:13px; margin-top:4px;">{d['country']} · {TAGLINES[key]}</div>
+                    <div style="font-size:26px; font-weight:700;">{d['name']}</div>
+                """)
+                st.button(f"Plan {d['name']}", key=f"card_{key}", icon=":material/arrow_forward:",
+                          width="stretch", on_click=start_intake, args=(key,))
 
+    st.divider()
+    st.image(str(ASSETS / "logo.png"), width=110)
+    st.caption("**PLAN LESS. EXPERIENCE MORE.** · Made for the journeys that stay with you.")
+    st.caption("Coming later: sign in, Community, My trips and Profile.")
+
+
+# ---------------- Intake: the assistant asks, the user taps or types ----------------
+def question(step, a):
+    places = load_places()
+    name = places[a["destination"]]["name"] if a.get("destination") else "there"
+    return {
+        "travel_type": "Is this a domestic or an international trip?",
+        "destination": "Lovely! Where in India would you like to go?"
+        if a.get("travel_type") == "Domestic" else "Where abroad would you like to go?",
+        "days": f"{name} — great choice. How many days do you have?",
+        "budget": "What kind of budget are you thinking?",
+        "companions": "Who are you travelling with?",
+        "pace": "What pace suits you?",
+        "interests": "What are you into? Pick a few, then tap Done.",
+        "must_visit": "Any must-visit places? Type them, or tap Skip.",
+        "done": (
+            f"All set: {a.get('days')} days in {name}, {str(a.get('budget', '')).lower()} budget, "
+            f"{str(a.get('companions', '')).lower()}, {str(a.get('pace', '')).lower()} pace. "
+            "Tap below and I'll plan your days."
+        ),
+    }[step]
+
+
+def step_options(step, a):
+    """Tap options for the current question as (label, value) pairs."""
+    places = load_places()
+    if step == "travel_type":
+        return [("Domestic", "Domestic"), ("International", "International")]
+    if step == "destination":
+        domestic = a.get("travel_type") == "Domestic"
+        return [(d["name"], k) for k, d in places.items() if d["domestic"] == domestic]
+    if step == "days":
+        return [(f"{n} days", n) for n in DAY_OPTIONS]
+    if step == "budget":
+        return [(b, b) for b in planner.BUDGET_TIER]
+    if step == "companions":
+        return [(c, c) for c in COMPANIONS]
+    if step == "pace":
+        return [(p, p) for p in planner.PACE_ITEMS]
+    if step == "must_visit":
+        return [("Skip", "")]
+    return []
+
+
+def answer(label, value):
+    """Record one answer, then ask the next question."""
+    ss = st.session_state
+    step = ss.intake_step
+    ss.answers[step] = value
+    ss.intake_error = ""
+    nxt = STEPS[STEPS.index(step) + 1]
+    ss.intake_step = nxt
+    ss.intake_msgs += [("user", label), ("assistant", question(nxt, ss.answers))]
+
+
+def answer_typed(text):
+    """Understand a typed answer by matching it to the current question's options."""
+    ss = st.session_state
+    step, low = ss.intake_step, text.strip().lower()
+    if step == "must_visit":
+        return answer(text.strip()[:200], text.strip()[:200])
+    if step == "interests":
+        picked = [i for i in INTERESTS if i.lower() in low]
+        if picked:
+            return answer(", ".join(picked), picked)
+        ss.intake_error = "Tap a few interests, then Done."
+        return
+    if step == "days":
+        digits = "".join(ch for ch in low if ch.isdigit())
+        n = 7 if "week" in low and not digits else int(digits) if digits else 0
+        if 2 <= n <= 10:
+            return answer(f"{n} days", n)
+        ss.intake_error = "Trips can be 2 to 10 days — type a number."
+        return
+    for label, value in step_options(step, ss.answers):
+        if label.lower() in low:
+            return answer(label, value)
+    ss.intake_error = "Please pick one of the options."
+
+
+def show_intake(destinations, api_key, model):
+    ss = st.session_state
+    typed = st.chat_input("Tap an option or type your answer…")
+    if typed and ss.intake_step != "done":
+        answer_typed(typed)
+
+    st.button("Back to Explore", icon=":material/arrow_back:", type="tertiary", on_click=go_home)
+    eyebrow("01 / 02 · TRIP DETAILS")
+    st.title(f'Let\'s make a little room for :color[*somewhere.*]{{foreground="{TEAL}"}}')
     st.caption(
-        "Coming later: Community (share and discover routes), My trips and Profile."
+        "Chat with your Travello assistant. It'll ask a few questions, then plan places to see, "
+        "eat and stay — and you can change anything after."
     )
 
+    with st.container(border=True):
+        st.markdown("**Travello assistant**  \n:small[AI suggestions — always double-check before booking]")
+        for role, text in ss.intake_msgs:
+            avatar = str(ASSETS / "pin.png") if role == "assistant" else ":material/person:"
+            with st.chat_message(role, avatar=avatar):
+                st.write(text)
 
-# ---------------- Wizard ----------------
-def wizard_header(step):
-    """Back arrow + title + 3-part progress bar, like the prototype's wizard header."""
-    top = st.container(horizontal=True, vertical_alignment="center")
-    # Back goes to the previous step, or home from step 1.
-    back_args = ("home",) if step == 1 else ("wizard", step - 1)
-    top.button("", icon=":material/arrow_back:", type="tertiary", key="wiz_back",
-               on_click=go, args=back_args, help="Back")
-    top.markdown(f"#### Plan a trip  \n:gray[Trip details · {step} of 3]")
-    st.progress(step / 3, text=f"**Step {step} of 3** · {STEP_NAMES[step - 1]}")
-
-
-def show_wizard(destinations, api_key, model):
-    step = st.session_state.step
-    wizard_header(step)
-
-    if step == 1:
-        st.header("Where are you heading?")
-        st.caption("A few trip details first. Your planner will take it from there.")
-        st.pills(
-            "Which destination?", list(destinations), key="w_dest", persist_state="session",
-            format_func=lambda k: destinations[k]["name"],
-        )
-        st.selectbox(
-            "How long are you going?", list(range(2, 11)), key="w_days", persist_state="session",
-            format_func=lambda n: f"{n} days",
-        )
-        st.caption("Destinations: Goa, Jaipur, Kyoto and Bali. Trips of 2–10 days.")
-        back, nxt = st.columns([1, 2])
-        back.button("Cancel", width="stretch", on_click=go, args=("home",))
-        if nxt.button("Continue", type="primary", icon=":material/arrow_forward:", width="stretch"):
-            if st.session_state.get("w_dest"):
-                go("wizard", 2)
-                st.rerun()
-            st.warning("Pick a destination to continue.")
-
-    elif step == 2:
-        st.header("Who's coming along?")
-        st.caption("Budget and company help shape your itinerary.")
-        st.segmented_control(
-            "What's your budget?", list(planner.BUDGET_TIER), key="w_budget",
-            persist_state="session", required=True, width="stretch",
-        )
-        st.caption("Budget picks the stay: Budget = tier 1, Mid-range = tier 2, Premium = tier 3.")
-        st.pills(
-            "Who are you travelling with?", COMPANIONS, key="w_companions",
-            persist_state="session", required=True,
-        )
-        back, nxt = st.columns([1, 2])
-        back.button("Back", width="stretch", on_click=go, args=("wizard", 1))
-        nxt.button(
-            "Continue", type="primary", icon=":material/arrow_forward:", width="stretch",
-            on_click=go, args=("wizard", 3),
-        )
-
-    else:
-        st.header("What's your travel style?")
-        st.caption("One last step — make the trip feel like you. Optional: pick what matters.")
-        st.pills(
-            "What would you like to explore?", INTERESTS, selection_mode="multi",
-            key="w_interests", persist_state="session",
-        )
-        c1, c2 = st.columns(2)
-        c1.selectbox(
-            "Your pace", list(planner.PACE_ITEMS), key="w_pace", persist_state="session",
-        )
-        c2.selectbox(
-            "Where would you like to stay?", STAY_TYPES, key="w_stay", persist_state="session",
-        )
-        st.pills(
-            "Any food preferences?", FOOD_PREFS, selection_mode="multi", key="w_food",
-            persist_state="session",
-        )
-        back, nxt = st.columns([1, 2])
-        back.button("Back", width="stretch", on_click=go, args=("wizard", 2))
-        if nxt.button(
-            "Build my itinerary", type="primary", icon=":material/arrow_forward:", width="stretch"
-        ):
-            generate(destinations, api_key, model)
+        step = ss.intake_step
+        if step == "interests":
+            st.pills("Interests", INTERESTS, selection_mode="multi", key="w_interests",
+                     label_visibility="collapsed")
+            picked = ss.w_interests or []
+            st.button("Done", type="primary", disabled=not picked, on_click=answer,
+                      args=(", ".join(picked), picked))
+        elif step == "done":
+            if st.button("Plan my days", type="primary", icon=":material/arrow_forward:",
+                         width="stretch"):
+                generate(destinations, api_key, model)
+        else:
+            row = st.container(horizontal=True)
+            for label, value in step_options(step, ss.answers):
+                row.button(label, key=f"opt_{step}_{label}", on_click=answer, args=(label, value))
+        if ss.intake_error:
+            st.warning(ss.intake_error)
 
 
 def generate(destinations, api_key, model):
     ss = st.session_state
+    a = ss.answers
     brief = {
-        "days": ss.w_days,
-        "budget": ss.w_budget,
-        "companions": ss.w_companions,
-        "pace": ss.w_pace,
-        "stay_type": ss.w_stay,
-        "interests": ss.w_interests or [],
-        "food": ss.w_food or [],
+        "days": a["days"],
+        "budget": a["budget"],
+        "companions": a["companions"],
+        "pace": a["pace"],
+        "interests": a.get("interests") or [],
+        "food": [],
+        "must_visit": a.get("must_visit", ""),
     }
-    with st.spinner("Planning your trip…"):
+    with st.spinner(f"Finding places to see, eat and stay in {destinations[a['destination']]['name']}…"):
         try:
             itin, warnings = planner.generate_itinerary(
-                get_client(api_key), model, brief, destinations[ss.w_dest]
+                get_client(api_key), model, brief, destinations[a["destination"]]
             )
         except planner.PlannerError as e:
             st.error(str(e))
             return
     # Kept in session_state so later edits build on the latest version.
-    ss.itinerary, ss.warnings, ss.brief, ss.dest_key = itin, warnings, brief, ss.w_dest
-    ss.chat = [{"role": "assistant", "content": "Your itinerary is ready. Adjust it below, or download it when you're happy."}]
-    go("plan")
+    ss.itinerary, ss.warnings, ss.brief, ss.dest_key = itin, warnings, brief, a["destination"]
+    ss.chat = [("assistant", "Your plan is ready. What would you like to change?")]
+    ss.view = "plan"
     st.rerun()
 
 
 # ---------------- Plan ----------------
 def show_day_cards(itin, dest):
     places = lookup(dest)
-    if itin["summary"]:
-        st.write(itin["summary"])
     for day in itin["days"]:
         with st.container(border=True):
-            st.markdown(f"**Day {day['day']}**" + (f" · {day['title']}" if day["title"] else ""))
+            st.subheader(f"Day {day['day']}" + (f" · {day['title']}" if day["title"] else ""))
             for slot in planner.SLOTS:
-                st.markdown(f":gray[{slot.capitalize()}]")
+                st.markdown(f':small[**:color[{slot.upper()}]{{foreground="{TEAL}"}}**]')
                 if not day[slot]:
                     st.markdown("- _Free time_")
                 for item in day[slot]:
@@ -258,26 +322,6 @@ def show_day_cards(itin, dest):
                     line = f"- **{p['name']}**" + (f" ({extra})" if extra else "")
                     line += f" — {item['note'] or p['note']}"
                     st.markdown(line)
-
-
-def show_summary_card(itin, dest, brief):
-    places = lookup(dest)
-    stay = itin["stay"]
-    stops = sum(len(day[slot]) for day in itin["days"] for slot in planner.SLOTS)
-    with st.container(border=True):
-        st.markdown(f"### {dest['name']} · {len(itin['days'])} days")
-        stay_name = places[stay["id"]]["name"] if stay else "no stay matched"
-        st.caption(f"{stops} stops · {stay_name}")
-        if stay:
-            s = places[stay["id"]]
-            st.markdown(f"**{s['name']}** · {s['type']} · ₹{s['price']:,}/night · ⭐ {s['rating']}")
-            st.caption((stay["note"] or s["note"]) + " · Sample stay, not a verified listing or booking.")
-        food = ", ".join(brief["food"]) or "Any food"
-        st.caption(f"{brief['pace']} pace · {brief['budget']} · {brief['companions']} · {food}")
-        st.divider()
-        for day in itin["days"]:
-            names = [places[i["id"]]["name"] for slot in planner.SLOTS for i in day[slot]]
-            st.markdown(f"**Day {day['day']}** &nbsp; " + (" · ".join(names) or "Free time"))
 
 
 def itinerary_markdown(itin, dest, brief):
@@ -319,57 +363,79 @@ def itinerary_markdown(itin, dest, brief):
 def apply_edit(request, dest, api_key, model):
     """Send the current plan + the user's change to Gemini and keep the new version."""
     ss = st.session_state
-    ss.chat.append({"role": "user", "content": request})
-    with st.spinner("Updating your plan…"):
+    ss.chat.append(("user", request))
+    with st.spinner("Reworking your plan…"):
         try:
             itin, warnings, changes = planner.edit_itinerary(
                 get_client(api_key), model, ss.brief, dest, ss.itinerary, request
             )
         except planner.PlannerError as e:
-            ss.chat.append({"role": "assistant", "content": f"Sorry — {e} Your plan is unchanged."})
+            ss.chat.append(("assistant", f"Something went wrong on my side ({e}) Your plan hasn't changed."))
             return
     ss.itinerary, ss.warnings = itin, warnings
     ss.brief = {**ss.brief, "days": len(itin["days"])}
-    ss.chat.append({"role": "assistant", "content": changes or "Done — your plan is updated."})
+    ss.chat.append(("assistant", changes or "Done — your plan is updated."))
 
 
 def show_plan(destinations, api_key, model):
     ss = st.session_state
     dest = destinations[ss.dest_key]
+    itin = ss.itinerary
 
-    # Pinned to the bottom of the page, like the prototype's chat bar.
-    request = st.chat_input("Change days, budget or any activity…")
+    # Pinned to the bottom of the page: the edit-by-chat box.
+    request = st.chat_input("e.g. Make day 2 more relaxed, add a sunset spot")
     if request:
         apply_edit(request, dest, api_key, model)
+        itin = ss.itinerary
 
     top = st.container(horizontal=True, vertical_alignment="center")
-    top.button("", icon=":material/arrow_back:", type="tertiary", key="plan_back",
-               on_click=go, args=("home",), help="Back to home")
-    top.markdown(f"#### {dest['name']} · your plan")
+    top.button("Edit trip details", icon=":material/arrow_back:", type="tertiary",
+               on_click=start_intake, args=(ss.dest_key,))
+    top.caption("02 / 02 · DRAFT — download it to keep a copy")
 
-    for msg in ss.chat:
-        with st.chat_message(msg["role"], avatar=str(ASSETS / "pin.png") if msg["role"] == "assistant" else None):
-            st.write(msg["content"])
+    eyebrow(f"{dest['country'].upper()} / {len(itin['days'])} DAYS / {ss.brief['pace'].upper()} PACE")
+    st.title(f'{dest["name"]}, :color[*your way.*]{{foreground="{TEAL}"}}')
+    if itin["summary"]:
+        st.write(itin["summary"])
+
+    places = lookup(dest)
+    stay = itin["stay"]
+    with st.container(border=True):
+        if stay:
+            s = places[stay["id"]]
+            st.markdown(
+                f":material/hotel: **Your stay:** {s['name']} — {stay['note'] or s['note']} · "
+                f"{s['type']} · around ₹{s['price']:,}/night · ⭐ {s['rating']}"
+            )
+        else:
+            st.markdown(":material/hotel: **Your stay:** none could be matched — try asking for one below.")
+        st.caption("Sample stay · not a verified listing or booking.")
 
     for w in ss.warnings:
         st.warning(w)
-    show_summary_card(ss.itinerary, dest, ss.brief)
+    show_day_cards(itin, dest)
+    st.caption(
+        "AI suggestions aren't checked against live sources. Confirm opening hours, safety "
+        "advice and bookings before you go."
+    )
 
     st.download_button(
         "Download itinerary",
-        data=itinerary_markdown(ss.itinerary, dest, ss.brief),
-        file_name=f"travello-{ss.dest_key}-{len(ss.itinerary['days'])}-days.md",
+        data=itinerary_markdown(itin, dest, ss.brief),
+        file_name=f"travello-{ss.dest_key}-{len(itin['days'])}-days.md",
         mime="text/markdown",
         type="primary",
         icon=":material/download:",
         width="stretch",
     )
-    c1, c2 = st.columns(2)
-    full = c1.toggle("Open full itinerary", key="show_full")
-    c2.button("Change details", icon=":material/auto_awesome:", width="stretch",
-              on_click=go, args=("wizard", 1))
-    if full:
-        show_day_cards(ss.itinerary, dest)
+
+    with st.container(border=True):
+        eyebrow("TRAVELLO ASSISTANT")
+        for role, text in ss.chat:
+            avatar = str(ASSETS / "pin.png") if role == "assistant" else ":material/person:"
+            with st.chat_message(role, avatar=avatar):
+                st.write(text)
+        st.caption("Type a change in the box at the bottom of the page.")
 
 
 # ---------------- Page ----------------
@@ -378,14 +444,8 @@ api_key, model = get_settings()
 
 ss = st.session_state
 ss.setdefault("view", "home")
-ss.setdefault("step", 1)
-for key, default in {
-    "w_days": 3, "w_budget": "Mid-range", "w_companions": "Solo", "w_pace": "Balanced",
-    "w_stay": "No preference", "w_interests": [], "w_food": [],
-}.items():
-    ss.setdefault(key, default)
 
-st.image(str(ASSETS / "logo.png"), width=150)
+st.image(str(ASSETS / "logo.png"), width=140)
 
 if not api_key:
     st.error("No GEMINI_API_KEY found in secrets. Add it to run the planner.")
@@ -393,7 +453,7 @@ if not api_key:
 
 if ss.view == "plan" and "itinerary" in ss:
     show_plan(destinations, api_key, model)
-elif ss.view == "wizard":
-    show_wizard(destinations, api_key, model)
+elif ss.view == "intake" and "intake_step" in ss:
+    show_intake(destinations, api_key, model)
 else:
     show_home(destinations)

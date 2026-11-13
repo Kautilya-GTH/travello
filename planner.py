@@ -20,13 +20,14 @@ TIMEOUT_CODE = 504  # model didn't answer within the client timeout (set in app.
 
 # Pace -> how many places/meals per day in total (all three slots together).
 PACE_ITEMS = {
-    "Relaxed": "2 to 3",
+    "Slow": "2 to 3",
     "Balanced": "3 to 4",
-    "Activity-filled": "5 to 6",
+    "Full": "5 to 6",
 }
 
-# Budget -> which stay tier to recommend (tier field in places.json).
-BUDGET_TIER = {"Budget": 1, "Mid-range": 2, "Premium": 3}
+# Budget -> which stay tier to recommend (tier field in places.json has 1-3,
+# so Comfort and Luxury both map to the top tier).
+BUDGET_TIER = {"Budget": 1, "Mid-range": 2, "Comfort": 3, "Luxury": 3}
 
 
 class PlannerError(Exception):
@@ -92,10 +93,18 @@ def _brief_text(brief, editing=False):
         if stay_type != "No preference"
         else "- Stay type: no preference"
     )
+    must = brief.get("must_visit", "").strip()
+    must_line = (
+        f"- Must-visit wishes: \"{must}\" (include matching places from the list; "
+        "ignore anything not in the list)"
+        if must
+        else "- Must-visit wishes: none"
+    )
     return f"""TRAVELLER BRIEF
 - Days: {days}
 - Budget: {brief['budget']} -> recommend a tier {tier} stay
 {stay_line}
+{must_line}
 - Travelling as: {brief['companions']}
 - Pace: {brief['pace']} -> {PACE_ITEMS[brief['pace']]} items per day in total, including meals
 - Interests: {', '.join(brief['interests']) or 'no preference'} (prefer places with these tags)
